@@ -1,0 +1,25 @@
+# Core Backend & Analytical Lakehouse
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+duckdb>=1.1.0
+pydantic>=2.10.0
+pydantic-settings>=2.0.0
+
+# Econometrics & Simulation
+scikit-learn>=1.5.0
+scipy>=1.13.0
+numpy>=1.26.0
+pandas>=2.2.0
+
+# UI & Data Visualization
+streamlit>=1.40.0
+plotly>=5.24.0
+
+# Security & Defense-in-Depth
+pyjwt>=2.9.0
+slowapi>=0.1.9
+cryptography>=42.0.0
+
+# Testing & Quality Assurance
+pytest>=8.3.0
+httpx>=0.27.0

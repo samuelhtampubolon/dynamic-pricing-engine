@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  pricing-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dynamic-pricing-api
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - HOST=0.0.0.0
+      - API_PORT=8000
+      - DUCKDB_PATH=/app/data/pricing_lakehouse.duckdb
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  pricing-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dynamic-pricing-dashboard
+    command: streamlit run src/ui/dashboard.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+    ports:
+      - "8501:8501"
+    environment:
+      - HOST=0.0.0.0
+      - STREAMLIT_PORT=8501
+      - DUCKDB_PATH=/app/data/pricing_lakehouse.duckdb
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - pricing-api
+    restart: unless-stopped
