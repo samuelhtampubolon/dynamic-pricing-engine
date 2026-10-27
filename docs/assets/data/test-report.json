@@ -1,0 +1,340 @@
+{
+  "generated_at": "2026-10-27T07:07:52+00:00",
+  "python": "Python 3.13.17",
+  "total": 75,
+  "passed": 75,
+  "failed": 0,
+  "skipped": 0,
+  "files": [
+    {
+      "file": "tests/test_api_security.py",
+      "passed": 8,
+      "tests": [
+        {
+          "name": "test_healthz_and_readyz_probes",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_jwt_token_issuance_and_access",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_owasp_api1_bola_cross_tenant_isolation",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_owasp_api2_broken_authentication",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_owasp_api3_mass_assignment_extra_fields",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_owasp_api3_numeric_bounds_validation",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_owasp_api4_resource_consumption_cap",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_owasp_security_headers_injection",
+          "outcome": "passed"
+        }
+      ]
+    },
+    {
+      "file": "tests/test_js_engine_parity.py",
+      "passed": 3,
+      "tests": [
+        {
+          "name": "test_guarded_quote_parity",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_ols_parity",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_unit_economics_parity",
+          "outcome": "passed"
+        }
+      ]
+    },
+    {
+      "file": "tests/test_pricing_guardrails.py",
+      "passed": 6,
+      "tests": [
+        {
+          "name": "test_margin_floor_circuit_breaker_cannot_be_violated",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_msrp_ceiling_guardrail_cannot_be_exceeded",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_anti_poisoning_quality_gate_quarantines_anomalies",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_unit_economics_governing_equations",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_bandit_simulation_thompson_sampling",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_bandit_simulation_epsilon_greedy",
+          "outcome": "passed"
+        }
+      ]
+    },
+    {
+      "file": "tests/test_quant_formulas.py",
+      "passed": 29,
+      "tests": [
+        {
+          "name": "test_lerner_price_maximises_profit[-1.2]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_lerner_price_maximises_profit[-1.85]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_lerner_price_maximises_profit[-2.6]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_lerner_price_maximises_profit[-4.0]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_lerner_price_maximises_profit[-8.0]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_inelastic_demand_is_a_corner_solution",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_markup_and_gross_margin_are_inverse",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_guardrail_conflict_is_rejected",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_guardrail_invariant_fuzz_all_skus",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_sell_through_price_hits_target_days_of_cover",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_quote_reacts_to_scarcity_and_overstock",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_profit_uplift_closed_form_matches_direct_computation",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_breakeven_volume_change_keeps_profit_constant",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_arc_elasticity_matches_constant_elasticity_for_small_changes",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_ols_recovers_known_elasticity_with_valid_inference",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_seeded_lakehouse_elasticity_is_identified",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_bandit_demand_is_on_the_right_scale",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_bandits_are_reproducible_with_seed",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_bandits_beat_static_regret[thompson_sampling-50.0]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_bandits_beat_static_regret[ucb1-5.0]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_bandits_beat_static_regret[epsilon_greedy-50.0]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_thompson_sampling_regret_is_sublinear",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_discounted_ltv_closed_form_matches_series",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_churn_adjusted_payback",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_churn_lifetime_identities",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_cohort_aggregates_are_customer_weighted",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_quality_gate_is_idempotent_and_reports_reasons",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_quality_gate_fails_closed_on_mass_poisoning",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_quote_p95_latency_under_50ms",
+          "outcome": "passed"
+        }
+      ]
+    },
+    {
+      "file": "tests/test_security_hardening.py",
+      "passed": 29,
+      "tests": [
+        {
+          "name": "test_token_requires_valid_client_secret",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_token_unknown_tenant_is_indistinguishable",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_token_role_is_server_assigned",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_forged_token_with_leaked_v1_secret_rejected",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_leaked_secret_refused_by_settings",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_production_requires_secrets",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_alg_none_token_rejected",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_token_claims_are_validated[override0]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_token_claims_are_validated[override1]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_token_claims_are_validated[override2]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_token_claims_are_validated[override3]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_token_claims_are_validated[override4]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_auth_error_does_not_leak_parser_details",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_bola_error_does_not_echo_tenant_ids",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_cross_tenant_sku_is_not_found_inside_own_scope",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_nan_and_inf_rejected_on_quote[{\"tenant_id\":\"tenant_alpha\",\"sku_id\":\"SKU-GPU-H100\",\"inventory_level\":300,\"competitor_price\":NaN}]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_nan_and_inf_rejected_on_quote[{\"tenant_id\":\"tenant_alpha\",\"sku_id\":\"SKU-GPU-H100\",\"inventory_level\":300,\"competitor_price\":Infinity}]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_nan_and_inf_rejected_on_quote[{\"tenant_id\":\"tenant_alpha\",\"sku_id\":\"SKU-GPU-H100\",\"inventory_level\":300,\"demand_surge_factor\":NaN}]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_nan_and_inf_rejected_in_bandit_arms",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_injection_payloads_rejected_by_identifier_pattern[x' OR '1'='1]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_injection_payloads_rejected_by_identifier_pattern[SKU-GPU-H100; DROP TABLE sku_catalog;--]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_injection_payloads_rejected_by_identifier_pattern[../../etc/passwd]",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_validation_errors_do_not_echo_secrets",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_request_body_size_limit",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_auth_endpoint_rate_limited",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_untrusted_host_rejected",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_cors_does_not_allow_arbitrary_origins",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_api_responses_not_cacheable_and_hardened",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_catalog_and_elasticity_are_tenant_scoped",
+          "outcome": "passed"
+        }
+      ]
+    }
+  ]
+}

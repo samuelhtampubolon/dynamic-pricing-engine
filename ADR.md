@@ -81,3 +81,41 @@ Enforce the OWASP API Security Top 10 controls:
 3. **OWASP API4 (Resource Consumption)**: Rate limiting via `slowapi` and strict cap on simulation horizon ($N \le 5000$).
 4. **SQL Injection Prevention**: Parameterized queries exclusively on DuckDB bindings.
 5. **Security Headers**: Injects `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy: default-src 'self'`, and `Strict-Transport-Security`.
+
+---
+
+### ADR-006 (v2): Corrected pricing pipeline and explicit policy parameters
+
+#### Context
+The v1 quote multiplied the Lerner price by an inventory factor `(500/I)^0.12` and a surge factor `s^(1/|ε|)`, and blended competitor prices linearly. Under a constant-elasticity demand curve neither a demand shift nor a competitor price changes the unconstrained optimum, so these factors were unexplained heuristics. The inelastic branch used an arbitrary markup, and the bandit used a demand intercept that produced about 10^7 units per day.
+
+#### Decision
+- One demand function everywhere: `E[Q] = S·s·exp(α)·P^ε·Pc^β`, with Duan smearing `S`.
+- Inelastic demand is a corner solution at MSRP.
+- Competitor influence is an explicit geometric anchor with weight `w = 0.30` (`COMPETITOR_ANCHOR_WEIGHT`).
+- Inventory and surge act through days of cover: price moves only if DoC leaves `[7, 45]` days, to the price that lands exactly on the band edge.
+- The pure formulas live in `src/services/pricing_math.py`; the GitHub Pages engine is parity-tested against them.
+
+### ADR-007 (v2): Read-only serving attach for DuckDB
+
+#### Context
+DuckDB allows one read-write process or many read-only processes. v1's launcher kept a read-write connection open while starting FastAPI and Streamlit, so both failed to open the file.
+
+#### Decision
+The preflight is the only read-write phase and closes its connection before spawning servers, which attach with `DUCKDB_READ_ONLY=true`. Schema changes are applied in place with `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, and older lakehouse files are re-seeded automatically.
+
+### ADR-008 (v2): Credential vault and fail-fast production settings
+
+#### Context
+v1 issued a token for any tenant with any secret, accepted a client-chosen role, and shipped its signing key in source control.
+
+#### Decision
+Per-tenant scrypt hashes in `TENANT_CREDENTIALS`, server-assigned roles, no default signing key, deny-listing of the published v1 key, and settings validation that refuses to start in production without secrets. Development uses an ephemeral key and documented local demo secrets.
+
+### ADR-009 (v2): Robust anti-poisoning statistics
+
+#### Context
+A mean/standard-deviation z-score computed over a batch that contains the outliers is vulnerable to masking: enough poisoned events inflate σ until none of them exceed the threshold.
+
+#### Decision
+Use the median and `1.4826·MAD` (50% breakdown point) with the same `|z| > 5` tolerance, record a reason per quarantined event, and fail closed when more than 20% of a tenant's batch is quarantined.

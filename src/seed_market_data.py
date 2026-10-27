@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 import math
-import random
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 import numpy as np
@@ -22,7 +21,7 @@ CATALOG_DEFINITIONS = [
         "min_margin_pct": 0.22,  # 22% margin floor -> $26,230
         "max_msrp": 39500.0,
         "base_price": 31000.0,
-        "true_elasticity": -1.85,
+        "true_elasticity": -2.60,
         "base_daily_demand": 24,
     },
     {
@@ -33,7 +32,7 @@ CATALOG_DEFINITIONS = [
         "min_margin_pct": 0.25,  # 25% margin floor -> $6,000
         "max_msrp": 9200.0,
         "base_price": 7500.0,
-        "true_elasticity": -1.45,
+        "true_elasticity": -2.40,
         "base_daily_demand": 50,
     },
     {
@@ -44,7 +43,7 @@ CATALOG_DEFINITIONS = [
         "min_margin_pct": 0.20,  # 20% margin floor -> $2,220
         "max_msrp": 3800.0,
         "base_price": 2900.0,
-        "true_elasticity": -2.10,
+        "true_elasticity": -2.90,
         "base_daily_demand": 120,
     },
     # Tenant Beta: Industrial Automation & Precision Engineering
@@ -56,7 +55,7 @@ CATALOG_DEFINITIONS = [
         "min_margin_pct": 0.25,  # 25% margin floor -> $4,250
         "max_msrp": 6900.0,
         "base_price": 5400.0,
-        "true_elasticity": -1.35,
+        "true_elasticity": -2.50,
         "base_daily_demand": 35,
     },
     {
@@ -67,25 +66,32 @@ CATALOG_DEFINITIONS = [
         "min_margin_pct": 0.30,  # 30% margin floor -> $546
         "max_msrp": 1150.0,
         "base_price": 820.0,
-        "true_elasticity": -2.30,
+        "true_elasticity": -3.20,
         "base_daily_demand": 210,
     },
 ]
 
 
+def _validate_catalog_item(item: Dict[str, Any]) -> None:
+    floor = item["unit_cogs"] * (1.0 + item["min_margin_pct"])
+    if not (0 < item["unit_cogs"] < item["base_price"] <= item["max_msrp"] and floor <= item["max_msrp"]):
+        raise ValueError(f"Inconsistent guardrails for {item['sku_id']}.")
+
+
 def seed_synthetic_lakehouse(days: int = 365, seed: int = 42) -> Dict[str, Any]:
     """Populate 12 months of synthetic market data into DuckDB Medallion Lakehouse."""
-    np.random.seed(seed)
-    random.seed(seed)
+    rng = np.random.default_rng(seed)
 
     lakehouse.initialize_schema()
 
     with lakehouse.get_connection(read_only=False) as conn:
         # 1. Seed SKU Catalog
         for item in CATALOG_DEFINITIONS:
+            _validate_catalog_item(item)
             conn.execute("""
-                INSERT OR REPLACE INTO sku_catalog
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT OR REPLACE INTO sku_catalog (
+                    sku_id, tenant_id, sku_name, unit_cogs, min_margin_pct, max_msrp, base_price
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """, [
                 item["sku_id"],
                 item["tenant_id"],
@@ -96,8 +102,9 @@ def seed_synthetic_lakehouse(days: int = 365, seed: int = 42) -> Dict[str, Any]:
                 item["base_price"],
             ])
 
-        # Clear existing Bronze events to start fresh
-        conn.execute("DELETE FROM bronze_market_events")
+        # Clear existing Bronze / Silver / Gold state to start fresh
+        for table in ("bronze_market_events", "silver_validated_demand", "gold_sku_elasticity"):
+            conn.execute(f"DELETE FROM {table}")
 
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=days)
@@ -115,15 +122,15 @@ def seed_synthetic_lakehouse(days: int = 365, seed: int = 42) -> Dict[str, Any]:
             current_dt = start_date
             while current_dt <= end_date:
                 dow_factor = 1.0 + 0.15 * math.sin(current_dt.weekday() * math.pi / 3.0)
-                competitor_p = base_p * np.random.uniform(0.92, 1.08)
-                observed_p = base_p * np.random.uniform(0.88, 1.14)
+                competitor_p = base_p * rng.uniform(0.92, 1.08)
+                observed_p = base_p * rng.uniform(0.82, 1.18)
 
                 price_ratio = observed_p / base_p
                 comp_ratio = competitor_p / base_p
                 exp_q = base_q * (price_ratio ** elasticity) * (comp_ratio ** 0.35) * dow_factor
 
-                actual_q = max(1, int(np.random.normal(exp_q, max(2.0, exp_q * 0.15))))
-                inv_level = int(np.random.uniform(150, 850))
+                actual_q = max(1, int(round(rng.normal(exp_q, max(2.0, exp_q * 0.15)))))
+                inv_level = int(base_q * rng.uniform(10, 40))
 
                 event_id = f"evt_{event_counter:07d}"
                 bronze_records.append((
@@ -174,8 +181,10 @@ def seed_synthetic_lakehouse(days: int = 365, seed: int = 42) -> Dict[str, Any]:
 
         # Batch insert into Bronze
         conn.executemany("""
-            INSERT INTO bronze_market_events
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO bronze_market_events (
+                event_id, tenant_id, sku_id, timestamp, observed_price, competitor_price,
+                units_sold, inventory_level, is_rejected_poison, rejection_reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, bronze_records)
 
     # 2. Run Anti-Poisoning Quality Gate for each tenant (Bronze -> Silver)
@@ -199,16 +208,18 @@ def seed_synthetic_lakehouse(days: int = 365, seed: int = 42) -> Dict[str, Any]:
         for t_id in ["tenant_alpha", "tenant_beta"]:
             base_arpu = 3800.0 if t_id == "tenant_alpha" else 1450.0
             base_cac = 4200.0 if t_id == "tenant_alpha" else 1850.0
+            base_customers = 140 if t_id == "tenant_alpha" else 380
 
             for idx, c_month in enumerate(cohort_months):
                 efficiency = 1.0 + (idx * 0.02)
-                arpu = round(base_arpu * np.random.uniform(0.95, 1.08), 2)
-                gm_pct = round(np.random.uniform(0.48, 0.58), 4)
-                churn = round(np.random.uniform(0.025, 0.045) / efficiency, 4)
-                cac = round((base_cac / efficiency) * np.random.uniform(0.94, 1.05), 2)
+                arpu = round(base_arpu * rng.uniform(0.95, 1.08), 2)
+                gm_pct = round(rng.uniform(0.48, 0.58), 4)
+                churn = round(rng.uniform(0.025, 0.045) / efficiency, 4)
+                cac = round((base_cac / efficiency) * rng.uniform(0.94, 1.05), 2)
 
                 ltv = unit_economics_service.calculate_ltv(arpu, gm_pct, churn)
                 ltv_cac = unit_economics_service.calculate_ltv_cac_ratio(ltv, cac)
+                new_customers = int(base_customers * efficiency * rng.uniform(0.85, 1.15))
 
                 cohort_records.append((
                     c_month,
@@ -219,11 +230,14 @@ def seed_synthetic_lakehouse(days: int = 365, seed: int = 42) -> Dict[str, Any]:
                     cac,
                     ltv,
                     ltv_cac,
+                    new_customers,
                 ))
 
         conn.executemany("""
-            INSERT INTO gold_cohort_economics
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO gold_cohort_economics (
+                cohort_id, tenant_id, arpu_usd, gross_margin_pct, churn_rate,
+                cac_usd, ltv_usd, ltv_cac_ratio, new_customers
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, cohort_records)
 
     counts = lakehouse.get_table_counts()

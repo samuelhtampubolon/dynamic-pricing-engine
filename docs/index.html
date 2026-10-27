@@ -1,1375 +1,461 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Real-Time Dynamic Pricing & Unit Economics Engine</title>
-  <meta name="description" content="Enterprise-grade Real-Time Dynamic Pricing & Unit Economics Engine with DuckDB Medallion Lakehouse, Econometric Elasticity, and Thompson Sampling Bandit Arena.">
-  
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <style>
-    :root {
-      --bg-dark: #0a0f1d;
-      --bg-card: rgba(17, 24, 39, 0.75);
-      --bg-card-hover: rgba(31, 41, 55, 0.85);
-      --border-color: rgba(255, 255, 255, 0.08);
-      --border-glow: rgba(16, 185, 129, 0.25);
-      
-      --accent-emerald: #10b981;
-      --accent-cyan: #06b6d4;
-      --accent-indigo: #6366f1;
-      --accent-amber: #f59e0b;
-      --accent-rose: #f43f5e;
-      
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --text-dim: #64748b;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      background-color: var(--bg-dark);
-      color: var(--text-main);
-      font-family: 'Inter', sans-serif;
-      line-height: 1.6;
-      background-image: 
-        radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
-        radial-gradient(circle at 85% 85%, rgba(99, 102, 241, 0.08) 0%, transparent 45%);
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    /* Container & Layout */
-    .container {
-      max-width: 1360px;
-      margin: 0 auto;
-      padding: 2rem 1.5rem 5rem;
-    }
-
-    /* Header & Navigation */
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 2rem;
-      border-bottom: 1px solid var(--border-color);
-      margin-bottom: 2.5rem;
-      flex-wrap: wrap;
-      gap: 1.5rem;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .brand-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, var(--accent-emerald), var(--accent-cyan));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.5rem;
-      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
-    }
-
-    .brand-text h1 {
-      font-family: 'Outfit', sans-serif;
-      font-size: 1.5rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .brand-text p {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-    }
-
-    .nav-links {
-      display: flex;
-      gap: 0.75rem;
-      align-items: center;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.6rem 1.1rem;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      font-weight: 600;
-      text-decoration: none;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      border: 1px solid transparent;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, var(--accent-emerald), #059669);
-      color: #fff;
-      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);
-    }
-
-    .btn-primary:hover {
-      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
-      transform: translateY(-1px);
-    }
-
-    .btn-secondary {
-      background: rgba(30, 41, 59, 0.8);
-      color: var(--text-main);
-      border-color: var(--border-color);
-    }
-
-    .btn-secondary:hover {
-      background: rgba(51, 65, 85, 0.8);
-      border-color: rgba(255, 255, 255, 0.15);
-    }
-
-    /* Hero Banner */
-    .hero {
-      text-align: center;
-      padding: 2.5rem 1rem 3.5rem;
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      background: rgba(16, 185, 129, 0.12);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      padding: 0.35rem 1rem;
-      border-radius: 30px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--accent-emerald);
-      margin-bottom: 1.5rem;
-    }
-
-    .hero h2 {
-      font-family: 'Outfit', sans-serif;
-      font-size: 2.8rem;
-      font-weight: 800;
-      line-height: 1.2;
-      letter-spacing: -0.03em;
-      margin-bottom: 1.2rem;
-    }
-
-    .gradient-text {
-      background: linear-gradient(135deg, var(--accent-emerald) 0%, var(--accent-cyan) 50%, var(--accent-indigo) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .hero p {
-      font-size: 1.15rem;
-      color: var(--text-muted);
-      max-width: 760px;
-      margin: 0 auto 2rem;
-    }
-
-    /* KPI Summary Row */
-    .kpi-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1.25rem;
-      margin-bottom: 3rem;
-    }
-
-    .kpi-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 14px;
-      padding: 1.5rem;
-      backdrop-filter: blur(12px);
-      transition: all 0.25s ease;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .kpi-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 3px;
-      background: linear-gradient(90deg, var(--accent-emerald), var(--accent-cyan));
-      opacity: 0;
-      transition: opacity 0.25s ease;
-    }
-
-    .kpi-card:hover {
-      border-color: var(--border-glow);
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
-    }
-
-    .kpi-card:hover::before {
-      opacity: 1;
-    }
-
-    .kpi-title {
-      font-size: 0.825rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 0.5rem;
-    }
-
-    .kpi-val {
-      font-family: 'Outfit', sans-serif;
-      font-size: 2rem;
-      font-weight: 700;
-      color: #fff;
-    }
-
-    .kpi-subtitle {
-      font-size: 0.8rem;
-      color: var(--accent-emerald);
-      margin-top: 0.35rem;
-      font-weight: 500;
-    }
-
-    /* Tabbed Interface */
-    .tabs-nav {
-      display: flex;
-      gap: 0.5rem;
-      border-bottom: 1px solid var(--border-color);
-      margin-bottom: 2rem;
-      overflow-x: auto;
-      padding-bottom: 0.5rem;
-    }
-
-    .tab-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      font-family: 'Inter', sans-serif;
-      font-size: 0.95rem;
-      font-weight: 600;
-      padding: 0.8rem 1.4rem;
-      border-radius: 8px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      transition: all 0.2s ease;
-      white-space: nowrap;
-    }
-
-    .tab-btn:hover {
-      color: #fff;
-      background: rgba(255, 255, 255, 0.04);
-    }
-
-    .tab-btn.active {
-      color: #fff;
-      background: rgba(16, 185, 129, 0.12);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-    }
-
-    .tab-pane {
-      display: none;
-      animation: fadeIn 0.3s ease forwards;
-    }
-
-    .tab-pane.active {
-      display: block;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Module Card */
-    .module-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 16px;
-      padding: 2rem;
-      margin-bottom: 2rem;
-      backdrop-filter: blur(14px);
-    }
-
-    .module-header {
-      margin-bottom: 1.5rem;
-    }
-
-    .module-title {
-      font-family: 'Outfit', sans-serif;
-      font-size: 1.4rem;
-      font-weight: 700;
-      margin-bottom: 0.3rem;
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-    }
-
-    .module-desc {
-      color: var(--text-muted);
-      font-size: 0.925rem;
-    }
-
-    /* Grid Layouts */
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1.3fr;
-      gap: 2rem;
-    }
-
-    @media (max-width: 960px) {
-      .grid-2 {
-        grid-template-columns: 1fr;
-      }
-      .hero h2 {
-        font-size: 2.1rem;
-      }
-    }
-
-    /* Form Controls */
-    .control-group {
-      margin-bottom: 1.25rem;
-    }
-
-    .control-label {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: var(--text-main);
-      margin-bottom: 0.4rem;
-    }
-
-    .control-hint {
-      font-size: 0.8rem;
-      color: var(--text-dim);
-    }
-
-    select, input[type="number"] {
-      width: 100%;
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 0.75rem 1rem;
-      color: var(--text-main);
-      font-family: inherit;
-      font-size: 0.95rem;
-      outline: none;
-      transition: border-color 0.2s ease;
-    }
-
-    select:focus, input[type="number"]:focus {
-      border-color: var(--accent-emerald);
-      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
-    }
-
-    input[type="range"] {
-      width: 100%;
-      accent-color: var(--accent-emerald);
-      margin-top: 0.3rem;
-      cursor: pointer;
-    }
-
-    /* Output Callouts */
-    .quote-box {
-      background: rgba(15, 23, 42, 0.85);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 1.75rem;
-      text-align: center;
-      position: relative;
-    }
-
-    .status-badge {
-      display: inline-block;
-      padding: 0.35rem 1rem;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      margin-bottom: 1rem;
-    }
-
-    .badge-optimal {
-      background: rgba(16, 185, 129, 0.15);
-      border: 1px solid var(--accent-emerald);
-      color: var(--accent-emerald);
-    }
-
-    .badge-floor {
-      background: rgba(245, 158, 11, 0.15);
-      border: 1px solid var(--accent-amber);
-      color: var(--accent-amber);
-    }
-
-    .badge-ceiling {
-      background: rgba(244, 63, 94, 0.15);
-      border: 1px solid var(--accent-rose);
-      color: var(--accent-rose);
-    }
-
-    .quote-price {
-      font-family: 'Outfit', sans-serif;
-      font-size: 2.8rem;
-      font-weight: 800;
-      color: #fff;
-      line-height: 1;
-      margin-bottom: 0.5rem;
-    }
-
-    .quote-sub {
-      color: var(--text-muted);
-      font-size: 0.9rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .metrics-matrix {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
-      margin-top: 1.5rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid var(--border-color);
-      text-align: left;
-    }
-
-    .metric-item-label {
-      font-size: 0.775rem;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      font-weight: 600;
-    }
-
-    .metric-item-val {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.05rem;
-      font-weight: 600;
-      color: var(--text-main);
-      margin-top: 0.2rem;
-    }
-
-    /* Tables */
-    .table-container {
-      overflow-x: auto;
-      border-radius: 10px;
-      border: 1px solid var(--border-color);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-      text-align: left;
-    }
-
-    th {
-      background: rgba(30, 41, 59, 0.6);
-      padding: 0.9rem 1rem;
-      color: var(--text-muted);
-      font-weight: 600;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    td {
-      padding: 0.85rem 1rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-      color: var(--text-main);
-    }
-
-    tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
-    }
-
-    /* Pipeline Graphic */
-    .pipeline-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1rem;
-      margin-top: 1.5rem;
-    }
-
-    @media (max-width: 800px) {
-      .pipeline-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .pipe-step {
-      background: rgba(15, 23, 42, 0.8);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 1.25rem;
-      position: relative;
-    }
-
-    .pipe-step-tag {
-      font-size: 0.725rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-bottom: 0.4rem;
-    }
-
-    .pipe-step h4 {
-      font-size: 1.05rem;
-      margin-bottom: 0.4rem;
-    }
-
-    .pipe-step p {
-      font-size: 0.825rem;
-      color: var(--text-muted);
-    }
-
-    /* Code blocks */
-    pre {
-      background: #020617;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 1rem;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85rem;
-      color: #38bdf8;
-      overflow-x: auto;
-    }
-
-    footer {
-      text-align: center;
-      padding: 3rem 1rem;
-      border-top: 1px solid var(--border-color);
-      color: var(--text-dim);
-      font-size: 0.875rem;
-    }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
+  <meta name="referrer" content="no-referrer">
+  <title>Dynamic Pricing Engine</title>
+  <meta name="description" content="Real-time dynamic pricing and unit economics engine: guarded Lerner pricing, log-log OLS elasticity, multi-armed bandit experimentation, cohort LTV/CAC and an OWASP-hardened API. Every number on this page is computed live in your browser.">
+  <meta name="theme-color" content="#070b14">
+  <meta property="og:title" content="Real-Time Dynamic Pricing & Unit Economics Engine">
+  <meta property="og:description" content="Guarded Lerner pricing, econometric elasticity, Thompson Sampling and cohort LTV/CAC, computed live in the browser.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <script defer src="assets/vendor/chart.umd.min.js"></script>
+  <script defer src="assets/vendor/katex/katex.min.js"></script>
+  <script defer src="assets/js/engine.js"></script>
+  <script defer src="assets/js/app.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="aurora" aria-hidden="true"></div>
 
-  <div class="container">
-    <!-- Header -->
-    <header>
-      <div class="brand">
-        <div class="brand-icon">⚡</div>
-        <div class="brand-text">
-          <h1>Dynamic Pricing & Unit Economics Engine</h1>
-          <p>Medallion Lakehouse · Econometrics · OWASP Guardrails · Multi-Armed Bandit</p>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#top" aria-label="Dynamic Pricing Engine home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="22" height="22"><path d="M4 24 L12 14 L18 19 L28 6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="28" cy="6" r="2.6" fill="currentColor"/></svg>
+        </span>
+        <span class="brand-text">
+          <strong>Dynamic Pricing Engine</strong>
+          <small>Unit Economics · v2.0</small>
+        </span>
+      </a>
+      <nav class="section-nav" aria-label="Sections">
+        <a href="#simulator">Quote Simulator</a>
+        <a href="#elasticity">Elasticity Studio</a>
+        <a href="#bandit">Bandit Arena</a>
+        <a href="#cohorts">Cohort Ledger</a>
+        <a href="#formulas">Formula Audit</a>
+        <a href="#architecture">Lakehouse</a>
+        <a href="#security">Security</a>
+      </nav>
+      <a class="btn btn-ghost" href="https://github.com/samuelhtampubolon/dynamic-pricing-engine" rel="noopener noreferrer">
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span>Repository</span>
+      </a>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- HERO -->
+    <section class="hero" id="top">
+      <div class="container">
+        <p class="eyebrow"><span class="pulse" aria-hidden="true"></span> Live in your browser · no backend · same math as the FastAPI engine</p>
+        <h1>Price every SKU at its <span class="grad">profit-maximising point</span>, and never below the margin floor.</h1>
+        <p class="lead">A real-time pricing and unit economics engine. Log-log OLS elasticity feeds the Lerner optimum, competitor anchoring and an inventory sell-through band, then a non-bypassable circuit breaker clamps every quote between <span class="mono">c·(1+m)</span> and MSRP.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#simulator">Open the quote simulator</a>
+          <a class="btn btn-ghost" href="#formulas">See the formula audit</a>
+        </div>
+        <div class="kpi-row" id="hero-kpis" aria-live="polite">
+          <article class="kpi glass">
+            <p class="kpi-label">Guardrail violations</p>
+            <p class="kpi-value" id="kpi-fuzz">…</p>
+            <p class="kpi-sub" id="kpi-fuzz-sub">fuzzed quotes in this browser</p>
+          </article>
+          <article class="kpi glass">
+            <p class="kpi-label">Quote compute time (P95)</p>
+            <p class="kpi-value" id="kpi-latency">…</p>
+            <p class="kpi-sub">target &lt; 50 ms</p>
+          </article>
+          <article class="kpi glass">
+            <p class="kpi-label">Thompson Sampling regret cut</p>
+            <p class="kpi-value" id="kpi-regret">…</p>
+            <p class="kpi-sub" id="kpi-regret-sub">vs. static price, 2,000 days</p>
+          </article>
+          <article class="kpi glass">
+            <p class="kpi-label">Discounted LTV / CAC</p>
+            <p class="kpi-value" id="kpi-ltv">…</p>
+            <p class="kpi-sub">customer-weighted, tenant alpha</p>
+          </article>
         </div>
       </div>
-      <div class="nav-links">
-        <a href="https://github.com/samuelhtampubolon/dynamic-pricing-engine" class="btn btn-secondary" target="_blank">
-          <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-          GitHub Repository
-        </a>
-        <a href="#demo-tabs" class="btn btn-primary">
-          Explore Live Engine
-        </a>
-      </div>
-    </header>
-
-    <!-- Hero Section -->
-    <section class="hero">
-      <div class="hero-badge">
-        <span>●</span> Real-Time Algorithmic Revenue Operations
-      </div>
-      <h2>
-        Maximize Contribution Margin With <br>
-        <span class="gradient-text">Hard Guardrail Circuit Breakers</span>
-      </h2>
-      <p>
-        An econometric pricing and unit economics engine replacing static price decay with real-time elasticity modeling, DuckDB anti-poisoning data quality gates, and automated Thompson Sampling bandit price experimentation.
-      </p>
     </section>
 
-    <!-- KPI Summary Row -->
-    <div class="kpi-row">
-      <div class="kpi-card">
-        <div class="kpi-title">Inference Latency</div>
-        <div class="kpi-val">&lt; 15ms</div>
-        <div class="kpi-subtitle">Sub-50ms P95 Target Met</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-title">Gross Margin Floor</div>
-        <div class="kpi-val">+22.0%</div>
-        <div class="kpi-subtitle">Non-Bypassable Circuit Breaker</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-title">Average Bandit Uplift</div>
-        <div class="kpi-val">+11.4%</div>
-        <div class="kpi-subtitle">Thompson Sampling vs Static</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-title">LTV / CAC Ratio</div>
-        <div class="kpi-val">18.2x</div>
-        <div class="kpi-subtitle">1.9 Month Payback Horizon</div>
-      </div>
-    </div>
+    <!-- 1. SIMULATOR -->
+    <section class="section" id="simulator" aria-labelledby="sim-title">
+      <div class="container">
+        <header class="section-head">
+          <p class="section-kicker">01 · Real-time guarded quote</p>
+          <h2 id="sim-title">Guarded Price Quote Simulator</h2>
+          <p>Pick a SKU, move the market. The engine walks four stages and the circuit breaker has the last word.</p>
+        </header>
 
-    <!-- Interactive Workspace Tabs -->
-    <div id="demo-tabs">
-      <nav class="tabs-nav">
-        <button class="tab-btn active" onclick="switchTab('tab-pricing', this)">
-          🎯 Real-Time Pricing Quote
-        </button>
-        <button class="tab-btn" onclick="switchTab('tab-elasticity', this)">
-          📈 Elasticity Studio
-        </button>
-        <button class="tab-btn" onclick="switchTab('tab-bandit', this)">
-          🎰 Bandit Experimentation Arena
-        </button>
-        <button class="tab-btn" onclick="switchTab('tab-cohorts', this)">
-          💎 Cohort Unit Economics
-        </button>
-        <button class="tab-btn" onclick="switchTab('tab-architecture', this)">
-          🏛️ Lakehouse & Security
-        </button>
-      </nav>
+        <div class="sku-chips" role="radiogroup" aria-label="SKU preset" id="sku-chips"></div>
 
-      <!-- TAB 1: PRICING QUOTE -->
-      <div id="tab-pricing" class="tab-pane active">
-        <div class="module-card">
-          <div class="module-header">
-            <div class="module-title">🎯 Real-Time Guarded Price Quote Simulator</div>
-            <div class="module-desc">Calculates log-log optimal price clamped to margin floor and MSRP ceiling with real-time inventory and competitor dynamics.</div>
-          </div>
-
-          <div class="grid-2">
-            <!-- Left: Inputs -->
-            <div class="controls-panel">
-              <div class="control-group">
-                <label class="control-label" for="sku-select">
-                  <span>Product SKU Catalog</span>
-                  <span class="control-hint">Preset Configurations</span>
-                </label>
-                <select id="sku-select" onchange="onSkuChange()">
-                  <option value="SKU-GPU-H100">SKU-GPU-H100: Tensor GPU Blade 80GB</option>
-                  <option value="SKU-NET-SWITCH-400G">SKU-NET-SWITCH-400G: 400GbE Spine Switch</option>
-                  <option value="SKU-NVME-STORAGE-30TB">SKU-NVME-STORAGE-30TB: Gen5 NVMe 30.72TB</option>
-                  <option value="SKU-CNC-SPINDLE">SKU-CNC-SPINDLE: 5-Axis CNC Spindle</option>
-                  <option value="SKU-COLD-REEFER">SKU-COLD-REEFER: IoT Cold-Chain Controller</option>
-                </select>
-              </div>
-
-              <div class="control-group">
-                <div class="control-label">
-                  <span>Inventory Level</span>
-                  <span id="inv-val" style="color: var(--accent-cyan);">420 units</span>
-                </div>
-                <input type="range" id="inv-slider" min="10" max="1000" value="420" step="10" oninput="calculateQuote()">
-                <span class="control-hint">Low inventory triggers scarcity markup; excess inventory discounts towards margin floor.</span>
-              </div>
-
-              <div class="control-group">
-                <label class="control-label" for="comp-input">
-                  <span>Competitor Price ($ USD)</span>
-                  <span class="control-hint">Cross-Price Elasticity</span>
-                </label>
-                <input type="number" id="comp-input" value="31000" step="100" oninput="calculateQuote()">
-              </div>
-
-              <div class="control-group">
-                <div class="control-label">
-                  <span>Market Demand Surge</span>
-                  <span id="surge-val" style="color: var(--accent-indigo);">1.00x (Normal)</span>
-                </div>
-                <input type="range" id="surge-slider" min="0.5" max="3.0" value="1.0" step="0.1" oninput="calculateQuote()">
-              </div>
+        <div class="sim-grid">
+          <aside class="panel glass controls" aria-label="Market inputs">
+            <h3 class="panel-title">Market state</h3>
+            <div class="control">
+              <div class="control-head"><label for="inp-inventory">Inventory level</label><output id="out-inventory" for="inp-inventory"></output></div>
+              <input type="range" id="inp-inventory" min="0" max="1000" step="1">
+              <p class="hint" id="hint-inventory"></p>
             </div>
-
-            <!-- Right: Quote Engine Results -->
-            <div>
-              <div class="quote-box">
-                <div id="guardrail-badge" class="status-badge badge-optimal">OPTIMAL_UNCONSTRAINED</div>
-                <div id="quote-price" class="quote-price">$31,450.00</div>
-                <div class="quote-sub">Algorithmic Recommended Price Quote</div>
-
-                <div class="metrics-matrix">
-                  <div>
-                    <div class="metric-item-label">Unit COGS</div>
-                    <div id="m-cogs" class="metric-item-val">$21,500.00</div>
-                  </div>
-                  <div>
-                    <div class="metric-item-label">Margin Floor</div>
-                    <div id="m-floor" class="metric-item-val" style="color: var(--accent-amber);">$26,230.00</div>
-                  </div>
-                  <div>
-                    <div class="metric-item-label">MSRP Ceiling</div>
-                    <div id="m-ceiling" class="metric-item-val" style="color: var(--accent-rose);">$39,500.00</div>
-                  </div>
-                  <div>
-                    <div class="metric-item-label">Raw P* (Lerner)</div>
-                    <div id="m-raw" class="metric-item-val">$32,150.00</div>
-                  </div>
-                  <div>
-                    <div class="metric-item-label">Gross Margin ($)</div>
-                    <div id="m-margin-usd" class="metric-item-val" style="color: var(--accent-emerald);">$9,950.00</div>
-                  </div>
-                  <div>
-                    <div class="metric-item-label">Gross Margin (%)</div>
-                    <div id="m-margin-pct" class="metric-item-val" style="color: var(--accent-emerald);">31.6%</div>
-                  </div>
-                </div>
+            <div class="control">
+              <div class="control-head">
+                <label for="inp-comp">Competitor price</label>
+                <output id="out-comp" for="inp-comp"></output>
               </div>
-
-              <div style="height: 220px; margin-top: 1.5rem;">
-                <canvas id="priceComparisonChart"></canvas>
-              </div>
+              <input type="range" id="inp-comp" min="0" max="100" step="1">
+              <label class="switch"><input type="checkbox" id="inp-comp-on" checked> <span>Use competitor signal (anchor weight w = 0.30)</span></label>
             </div>
+            <div class="control">
+              <div class="control-head"><label for="inp-surge">Demand surge factor</label><output id="out-surge" for="inp-surge"></output></div>
+              <input type="range" id="inp-surge" min="0.1" max="5" step="0.05" value="1">
+              <p class="hint">Multiplies expected demand. Through days of cover, it moves price only when the sell-through band binds.</p>
+            </div>
+            <div class="preset-row" aria-label="Scenario presets">
+              <button class="chip-btn" data-scenario="normal" type="button">Normal day</button>
+              <button class="chip-btn" data-scenario="scarcity" type="button">Stock-out risk</button>
+              <button class="chip-btn" data-scenario="flood" type="button">Inventory flood + price war</button>
+              <button class="chip-btn" data-scenario="surge" type="button">Demand spike</button>
+            </div>
+          </aside>
+
+          <div class="sim-result">
+            <article class="panel glass price-card">
+              <div class="price-head">
+                <div>
+                  <p class="kpi-label">Recommended price</p>
+                  <p class="price-value" id="res-price">…</p>
+                  <p class="price-sub" id="res-price-sub"></p>
+                </div>
+                <div class="badges" id="res-badges"></div>
+              </div>
+              <dl class="metric-grid" id="res-metrics"></dl>
+            </article>
+
+            <article class="panel glass">
+              <h3 class="panel-title">Pricing pipeline ladder</h3>
+              <p class="panel-sub">Each stage on one price scale. The shaded band is the guardrail envelope [floor, MSRP].</p>
+              <ol class="ladder" id="ladder"></ol>
+            </article>
           </div>
         </div>
-      </div>
 
-      <!-- TAB 2: ELASTICITY STUDIO -->
-      <div id="tab-elasticity" class="tab-pane">
-        <div class="module-card">
-          <div class="module-header">
-            <div class="module-title">📈 Econometric Demand Elasticity Studio</div>
-            <div class="module-desc">Log-Log OLS Demand Formulation: ln(Q) = α + ε·ln(P) + β·ln(Pcomp). Inspect empirical elasticity and theoretical profit curves.</div>
-          </div>
-
-          <div class="grid-2">
-            <div style="height: 340px;">
-              <canvas id="elasticityCurveChart"></canvas>
-            </div>
-            <div style="height: 340px;">
-              <canvas id="profitCurveChart"></canvas>
-            </div>
-          </div>
-
-          <div class="metrics-matrix" style="grid-template-columns: repeat(4, 1fr); margin-top: 1.5rem;">
-            <div>
-              <div class="metric-item-label">Price Elasticity (ε)</div>
-              <div class="metric-item-val" style="color: var(--accent-cyan);">-1.8500</div>
-            </div>
-            <div>
-              <div class="metric-item-label">Cross-Price Elasticity (β)</div>
-              <div class="metric-item-val" style="color: var(--accent-indigo);">+0.3500</div>
-            </div>
-            <div>
-              <div class="metric-item-label">R-Squared (Fit)</div>
-              <div class="metric-item-val" style="color: var(--accent-emerald);">0.8420</div>
-            </div>
-            <div>
-              <div class="metric-item-label">Optimal Markup Lerner</div>
-              <div class="metric-item-val">ε / (1 + ε) = 2.17x</div>
-            </div>
-          </div>
+        <div class="two-col">
+          <article class="panel glass">
+            <h3 class="panel-title">Price Architecture Envelope</h3>
+            <p class="panel-sub">Expected gross profit per day across price, under the current competitor and surge state.</p>
+            <div class="chart-box"><canvas id="chart-envelope" role="img" aria-label="Gross profit per day versus price with guardrail envelope"></canvas></div>
+          </article>
+          <article class="panel glass">
+            <h3 class="panel-title">Formula trail</h3>
+            <p class="panel-sub">The exact substitutions behind this quote.</p>
+            <div class="trail" id="formula-trail"></div>
+          </article>
         </div>
       </div>
+    </section>
 
-      <!-- TAB 3: BANDIT ARENA -->
-      <div id="tab-bandit" class="tab-pane">
-        <div class="module-card">
-          <div class="module-header">
-            <div class="module-title">🎰 Multi-Armed Bandit Experimentation Arena</div>
-            <div class="module-desc">Simulate Thompson Sampling (Bayesian conjugate Gaussian prior) versus static baseline pricing over time.</div>
-          </div>
+    <!-- 2. ELASTICITY -->
+    <section class="section" id="elasticity" aria-labelledby="el-title">
+      <div class="container">
+        <header class="section-head">
+          <p class="section-kicker">02 · Econometrics</p>
+          <h2 id="el-title">Econometric Elasticity Studio</h2>
+          <p>365 days of synthetic demand per SKU, fitted with log-log OLS plus day-of-week fixed effects. Full inference, not just a slope.</p>
+        </header>
+        <div class="tex-banner glass" data-tex="\ln Q_t = \alpha + \varepsilon \ln P_t + \beta \ln P^{\text{comp}}_t + \sum_{d=1}^{6}\gamma_d D_{d,t} + u_t \qquad P^{*} = c\,\frac{\varepsilon}{1+\varepsilon}"></div>
+        <div class="sku-chips" role="radiogroup" aria-label="SKU for elasticity" id="el-chips"></div>
 
-          <div style="display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1.5rem; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 200px;">
-              <label class="control-label">Algorithm</label>
-              <select id="bandit-algo">
-                <option value="thompson">Thompson Sampling (Bayesian Exploration)</option>
-                <option value="egreedy">Epsilon-Greedy (ε = 0.10)</option>
-              </select>
+        <div class="two-col">
+          <article class="panel glass">
+            <h3 class="panel-title">Coefficient table</h3>
+            <div class="table-wrap">
+              <table class="data-table" id="coef-table">
+                <thead><tr><th scope="col">Term</th><th scope="col">Estimate</th><th scope="col">SE</th><th scope="col">t</th><th scope="col">95% CI</th><th scope="col">True</th></tr></thead>
+                <tbody></tbody>
+              </table>
             </div>
-            <div style="flex: 1; min-width: 200px;">
-              <label class="control-label">Simulation Rounds</label>
-              <input type="number" id="bandit-rounds" value="500" min="50" max="2000" step="50">
-            </div>
-            <button class="btn btn-primary" onclick="runBanditSimulation()" style="height: 44px;">
-              🚀 Run Live Experimentation
-            </button>
-          </div>
+            <dl class="metric-grid compact" id="diag-metrics"></dl>
+          </article>
+          <article class="panel glass">
+            <h3 class="panel-title">Log-log demand curve</h3>
+            <p class="panel-sub">Daily ln Q adjusted for day-of-week and competitor price, against ln P. The slope is ε.</p>
+            <div class="chart-box"><canvas id="chart-loglog" role="img" aria-label="Scatter of log quantity against log price with fitted line"></canvas></div>
+          </article>
+        </div>
 
-          <div class="kpi-row" style="margin-bottom: 1.5rem;">
-            <div class="kpi-card">
-              <div class="kpi-title">Bandit Cumulative Profit</div>
-              <div id="b-profit" class="kpi-val" style="color: var(--accent-emerald);">$1,482,500</div>
-              <div id="b-uplift" class="kpi-subtitle">+11.4% Uplift vs Static</div>
+        <div class="two-col">
+          <article class="panel glass">
+            <h3 class="panel-title">Profit optimisation curve</h3>
+            <p class="panel-sub">Gross profit per day with Duan-smeared demand. P* sits where marginal revenue equals marginal cost.</p>
+            <div class="chart-box"><canvas id="chart-profit" role="img" aria-label="Gross profit per day versus price"></canvas></div>
+          </article>
+          <article class="panel glass">
+            <h3 class="panel-title">Lerner markup multiplier</h3>
+            <div class="control">
+              <div class="control-head"><label for="inp-eps">What-if elasticity ε</label><output id="out-eps" for="inp-eps"></output></div>
+              <input type="range" id="inp-eps" min="-6" max="-1.1" step="0.01">
             </div>
-            <div class="kpi-card">
-              <div class="kpi-title">Static Baseline Profit</div>
-              <div id="b-static" class="kpi-val">$1,330,800</div>
-              <div class="kpi-subtitle">Opportunity Cost Incurred</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-title">Cumulative Regret</div>
-              <div id="b-regret" class="kpi-val" style="color: var(--accent-amber);">$42,300</div>
-              <div class="kpi-subtitle">Sub-linear Regret Trajectory</div>
-            </div>
-          </div>
-
-          <div class="grid-2">
-            <div style="height: 320px;">
-              <canvas id="banditProfitChart"></canvas>
-            </div>
-            <div style="height: 320px;">
-              <canvas id="banditArmsChart"></canvas>
-            </div>
-          </div>
+            <p class="panel-sub">P*/c = ε/(1+ε). Demand near unit elasticity makes the optimal markup explode, which is exactly why the MSRP ceiling exists.</p>
+            <div class="chart-box short"><canvas id="chart-lerner" role="img" aria-label="Optimal price to cost multiplier as a function of elasticity"></canvas></div>
+          </article>
         </div>
       </div>
+    </section>
 
-      <!-- TAB 4: COHORTS -->
-      <div id="tab-cohorts" class="tab-pane">
-        <div class="module-card">
-          <div class="module-header">
-            <div class="module-title">💎 Cohort Unit Economics & LTV/CAC Ledger</div>
-            <div class="module-desc">LTV = (ARPU × Gross Margin %) / Monthly Churn Rate · LTV/CAC = LTV / CAC · Payback = CAC / (ARPU × GM%)</div>
+    <!-- 3. BANDIT -->
+    <section class="section" id="bandit" aria-labelledby="bd-title">
+      <div class="container">
+        <header class="section-head">
+          <p class="section-kicker">03 · Online experimentation</p>
+          <h2 id="bd-title">Multi-Armed Bandit Experimentation Arena</h2>
+          <p>Three policies race on the same SKU. Each day is one round; demand is Poisson from the fitted curve; reward is gross profit.</p>
+        </header>
+        <div class="panel glass bandit-controls">
+          <div class="control">
+            <label for="sel-bandit-sku">SKU</label>
+            <select id="sel-bandit-sku"></select>
           </div>
-
-          <div class="kpi-row" style="margin-bottom: 1.5rem;">
-            <div class="kpi-card">
-              <div class="kpi-title">Aggregate LTV / CAC</div>
-              <div class="kpi-val" style="color: var(--accent-emerald);">18.2x</div>
-              <div class="kpi-subtitle">High Capital Efficiency (&gt; 3.0x)</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-title">Average Cohort LTV</div>
-              <div class="kpi-val">$68,847</div>
-              <div class="kpi-subtitle">Net Lifetime Contribution</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-title">Blended CAC</div>
-              <div class="kpi-val">$3,786</div>
-              <div class="kpi-subtitle">Customer Acquisition Cost</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-title">CAC Payback Horizon</div>
-              <div class="kpi-val" style="color: var(--accent-cyan);">1.9 Months</div>
-              <div class="kpi-subtitle">Rapid Cash Conversion (&lt; 12 mo)</div>
-            </div>
+          <div class="control">
+            <div class="control-head"><label for="inp-horizon">Horizon (days)</label><output id="out-horizon" for="inp-horizon"></output></div>
+            <input type="range" id="inp-horizon" min="100" max="5000" step="100" value="2000">
           </div>
-
-          <div style="height: 300px; margin-bottom: 2rem;">
-            <canvas id="cohortLtvCacChart"></canvas>
+          <div class="control">
+            <div class="control-head"><label for="inp-epsilon">ε-greedy exploration</label><output id="out-epsilon" for="inp-epsilon"></output></div>
+            <input type="range" id="inp-epsilon" min="0.01" max="0.5" step="0.01" value="0.1">
           </div>
+          <div class="control">
+            <label for="inp-seed">Seed</label>
+            <input type="number" id="inp-seed" min="0" max="4294967295" value="7" inputmode="numeric">
+          </div>
+          <button class="btn btn-primary" id="btn-bandit" type="button">Run arena</button>
+        </div>
 
-          <div class="table-container">
-            <table>
+        <div class="algo-cards" id="algo-cards"></div>
+
+        <div class="two-col">
+          <article class="panel glass">
+            <h3 class="panel-title">Cumulative pseudo-regret</h3>
+            <p class="panel-sub">R<sub>T</sub> = Σ (μ* − μ<sub>a<sub>t</sub></sub>). Flattening curves mean the policy has found the best price.</p>
+            <div class="chart-box"><canvas id="chart-regret" role="img" aria-label="Cumulative regret by policy over time"></canvas></div>
+          </article>
+          <article class="panel glass">
+            <h3 class="panel-title">Cumulative profit vs. static price</h3>
+            <p class="panel-sub">Realised gross profit minus the static baseline's realised profit.</p>
+            <div class="chart-box"><canvas id="chart-profit-gap" role="img" aria-label="Cumulative profit difference versus static baseline"></canvas></div>
+          </article>
+        </div>
+        <article class="panel glass">
+          <h3 class="panel-title">Arm allocation</h3>
+          <p class="panel-sub">Rounds spent on each candidate price. Arms are clamped into the guardrail envelope before the experiment starts.</p>
+          <div class="chart-box short"><canvas id="chart-arms" role="img" aria-label="Pulls per price arm for each policy"></canvas></div>
+          <div class="table-wrap"><table class="data-table" id="arm-table"><thead></thead><tbody></tbody></table></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 4. COHORTS -->
+    <section class="section" id="cohorts" aria-labelledby="co-title">
+      <div class="container">
+        <header class="section-head">
+          <p class="section-kicker">04 · Unit economics</p>
+          <h2 id="co-title">Cohort Unit Economics &amp; LTV/CAC Ledger</h2>
+          <p>Twelve monthly acquisition cohorts. Discounted LTV and churn-adjusted payback sit next to the classic formulas so you can see the gap.</p>
+        </header>
+        <div class="panel glass cohort-controls">
+          <div class="segmented" role="radiogroup" aria-label="Tenant">
+            <button type="button" role="radio" aria-checked="true" data-tenant="tenant_alpha">Alpha · High-tech</button>
+            <button type="button" role="radio" aria-checked="false" data-tenant="tenant_beta">Beta · Industrial IoT</button>
+          </div>
+          <div class="control">
+            <div class="control-head"><label for="inp-disc">Annual discount rate</label><output id="out-disc" for="inp-disc"></output></div>
+            <input type="range" id="inp-disc" min="0" max="0.4" step="0.01" value="0.1">
+          </div>
+          <div class="control">
+            <div class="control-head"><label for="inp-churn">Churn stress</label><output id="out-churn" for="inp-churn"></output></div>
+            <input type="range" id="inp-churn" min="0.5" max="4" step="0.05" value="1">
+          </div>
+          <div class="control">
+            <div class="control-head"><label for="inp-cac">CAC stress</label><output id="out-cac" for="inp-cac"></output></div>
+            <input type="range" id="inp-cac" min="0.5" max="4" step="0.05" value="1">
+          </div>
+        </div>
+        <div class="kpi-row" id="cohort-kpis"></div>
+        <div class="two-col">
+          <article class="panel glass">
+            <h3 class="panel-title">Discounted LTV vs. CAC by cohort</h3>
+            <div class="chart-box"><canvas id="chart-ltv" role="img" aria-label="Discounted LTV and CAC per cohort"></canvas></div>
+          </article>
+          <article class="panel glass">
+            <h3 class="panel-title">LTV/CAC ratio by cohort</h3>
+            <p class="panel-sub">Dashed line: the 3× capital-efficiency benchmark.</p>
+            <div class="chart-box"><canvas id="chart-ratio" role="img" aria-label="LTV to CAC ratio per cohort with 3x benchmark"></canvas></div>
+          </article>
+        </div>
+        <article class="panel glass">
+          <h3 class="panel-title">Cohort ledger</h3>
+          <div class="table-wrap">
+            <table class="data-table ledger" id="ledger">
               <thead>
                 <tr>
-                  <th>Cohort Month</th>
-                  <th>Monthly ARPU</th>
-                  <th>Gross Margin (%)</th>
-                  <th>Monthly Churn</th>
-                  <th>CAC (USD)</th>
-                  <th>Customer LTV</th>
-                  <th>LTV / CAC</th>
-                  <th>Payback</th>
+                  <th scope="col">Cohort</th><th scope="col">Customers</th><th scope="col">ARPU</th><th scope="col">GM</th>
+                  <th scope="col">Churn / mo</th><th scope="col">Churn / yr</th><th scope="col">CAC</th><th scope="col">LTV</th>
+                  <th scope="col">LTV<sub>d</sub></th><th scope="col">LTV<sub>d</sub>/CAC</th><th scope="col">Payback</th>
+                  <th scope="col">Churn-adj. payback</th><th scope="col">Half-life</th>
                 </tr>
               </thead>
-              <tbody id="cohort-tbody">
-                <!-- Injected via JavaScript -->
-              </tbody>
+              <tbody></tbody>
             </table>
           </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 5. FORMULAS -->
+    <section class="section" id="formulas" aria-labelledby="fx-title">
+      <div class="container">
+        <header class="section-head">
+          <p class="section-kicker">05 · Quantitative audit</p>
+          <h2 id="fx-title">Formula Library &amp; v1 → v2 Audit</h2>
+          <p>Every governing equation in the engine, tagged as verified, corrected, or newly added, plus the defects found in v1.</p>
+        </header>
+        <div class="filter-row" role="radiogroup" aria-label="Filter formulas">
+          <button type="button" class="chip-btn active" data-filter="all">All</button>
+          <button type="button" class="chip-btn" data-filter="verified">Verified</button>
+          <button type="button" class="chip-btn" data-filter="corrected">Corrected</button>
+          <button type="button" class="chip-btn" data-filter="new">New</button>
+        </div>
+        <div class="formula-grid" id="formula-grid"></div>
+
+        <article class="panel glass audit">
+          <h3 class="panel-title">Defects found in v1 and how v2 fixes them</h3>
+          <div class="table-wrap">
+            <table class="data-table" id="audit-table">
+              <thead><tr><th scope="col">Severity</th><th scope="col">Area</th><th scope="col">v1 behaviour</th><th scope="col">v2 fix</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 6. ARCHITECTURE -->
+    <section class="section" id="architecture" aria-labelledby="ar-title">
+      <div class="container">
+        <header class="section-head">
+          <p class="section-kicker">06 · Data engineering</p>
+          <h2 id="ar-title">Medallion Lakehouse &amp; Anti-Poisoning Gate</h2>
+          <p>Embedded DuckDB, no database daemon. Serving processes attach read-only, so the API and the cockpit share one file without lock collisions.</p>
+        </header>
+
+        <div class="medallion" role="list" aria-label="Medallion data flow">
+          <div class="tier tier-raw glass" role="listitem">
+            <p class="tier-tag">Ingest</p>
+            <h3>Market events</h3>
+            <p>price · competitor price · units · inventory</p>
+          </div>
+          <div class="flow-arrow" aria-hidden="true"></div>
+          <div class="tier tier-bronze glass" role="listitem">
+            <p class="tier-tag">Bronze</p>
+            <h3 class="mono">bronze_<wbr>market_<wbr>events</h3>
+            <p>Raw append-only events, tenant scoped</p>
+          </div>
+          <div class="flow-arrow" aria-hidden="true"></div>
+          <div class="tier tier-gate glass" role="listitem">
+            <p class="tier-tag">Gate</p>
+            <h3>Robust z-score</h3>
+            <p>|x − median| / (1.4826·MAD) &gt; 5 → quarantine. &gt; 20% quarantined → fail closed</p>
+          </div>
+          <div class="flow-arrow" aria-hidden="true"></div>
+          <div class="tier tier-silver glass" role="listitem">
+            <p class="tier-tag">Silver</p>
+            <h3 class="mono">silver_<wbr>validated_<wbr>demand</h3>
+            <p>Daily SKU buckets that passed the gate</p>
+          </div>
+          <div class="flow-arrow" aria-hidden="true"></div>
+          <div class="tier tier-gold glass" role="listitem">
+            <p class="tier-tag">Gold</p>
+            <h3 class="mono">gold_<wbr>sku_<wbr>elasticity</h3>
+            <p>ε, β, α, smearing, SE, adj R², P*</p>
+            <h3 class="mono">gold_<wbr>cohort_<wbr>economics</h3>
+            <p>ARPU, GM, churn, CAC, LTV, customers</p>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <article class="panel glass">
+            <h3 class="panel-title">Why a robust z-score: the masking attack</h3>
+            <p class="panel-sub">Inject a coordinated batch of poisoned volume events. The classic mean/σ z-score lets the batch inflate σ and hide itself; the median/MAD gate does not.</p>
+            <div class="control">
+              <div class="control-head"><label for="inp-poison-k">Poisoned events in a 120-event batch</label><output id="out-poison-k" for="inp-poison-k"></output></div>
+              <input type="range" id="inp-poison-k" min="1" max="40" step="1" value="12">
+            </div>
+            <div class="control">
+              <div class="control-head"><label for="inp-poison-m">Poison magnitude (× median volume)</label><output id="out-poison-m" for="inp-poison-m"></output></div>
+              <input type="range" id="inp-poison-m" min="2" max="12" step="0.5" value="4">
+            </div>
+            <dl class="metric-grid compact" id="gate-metrics"></dl>
+          </article>
+          <article class="panel glass">
+            <h3 class="panel-title">Event batch and thresholds</h3>
+            <div class="chart-box"><canvas id="chart-gate" role="img" aria-label="Volume events with classic and robust quarantine thresholds"></canvas></div>
+          </article>
         </div>
       </div>
+    </section>
 
-      <!-- TAB 5: LAKEHOUSE & ARCHITECTURE -->
-      <div id="tab-architecture" class="tab-pane">
-        <div class="module-card">
-          <div class="module-header">
-            <div class="module-title">🏛️ DuckDB Medallion Lakehouse & OWASP Controls</div>
-            <div class="module-desc">Embedded file-based DuckDB lakehouse with automated anti-poisoning quality gate and OWASP defense-in-depth API controls.</div>
-          </div>
+    <!-- 7. SECURITY -->
+    <section class="section" id="security" aria-labelledby="se-title">
+      <div class="container">
+        <header class="section-head">
+          <p class="section-kicker">07 · Secure API architecture</p>
+          <h2 id="se-title">OWASP API Security Top 10 Controls</h2>
+          <p>What the FastAPI gateway enforces, and the automated tests that prove it.</p>
+        </header>
+        <div class="owasp-grid" id="owasp-grid"></div>
 
-          <div class="pipeline-grid">
-            <div class="pipe-step">
-              <div class="pipe-step-tag" style="color: #64748b;">Bronze Layer</div>
-              <h4>bronze_market_events</h4>
-              <p>Append-only stream of timestamped price, competitor price, inventory, and volume events. 1,840 records ingested.</p>
+        <div class="two-col">
+          <article class="panel glass">
+            <h3 class="panel-title">API surface</h3>
+            <div class="table-wrap">
+              <table class="data-table" id="endpoint-table">
+                <thead><tr><th scope="col">Method</th><th scope="col">Path</th><th scope="col">Auth</th><th scope="col">Limit</th></tr></thead>
+                <tbody></tbody>
+              </table>
             </div>
-            <div class="pipe-step" style="border-color: var(--accent-amber);">
-              <div class="pipe-step-tag" style="color: var(--accent-amber);">Quality Gate</div>
-              <h4>Anti-Poisoning Gate</h4>
-              <p>Z-Score spike detector (|z| &gt; 5.0). Quarantines 10 poisoned anomaly events before promotion to Silver.</p>
-            </div>
-            <div class="pipe-step" style="border-color: var(--accent-cyan);">
-              <div class="pipe-step-tag" style="color: var(--accent-cyan);">Silver Layer</div>
-              <h4>silver_validated_demand</h4>
-              <p>Clean daily demand aggregations, joined with SKU master COGS, min margin %, and MSRP bounds. 1,830 rows.</p>
-            </div>
-            <div class="pipe-step" style="border-color: var(--accent-emerald);">
-              <div class="pipe-step-tag" style="color: var(--accent-emerald);">Gold Layer</div>
-              <h4>gold_sku_elasticity</h4>
-              <p>Econometrically fitted OLS coefficients (ε, β, R²), guarded pricing quotes, and 24 monthly cohort ledgers.</p>
-            </div>
-          </div>
+          </article>
+          <article class="panel glass">
+            <h3 class="panel-title">Automated verification</h3>
+            <p class="panel-sub" id="test-summary">Loading test report…</p>
+            <div class="test-groups" id="test-groups"></div>
+          </article>
+        </div>
 
-          <div style="margin-top: 2rem;">
-            <h3 style="font-size: 1.2rem; margin-bottom: 1rem;">Single-Command Local Live Server Launch</h3>
-            <pre><code># 1. Install dependencies
+        <article class="panel glass run-local">
+          <h3 class="panel-title">Run it locally</h3>
+          <pre class="code"><code>git clone https://github.com/samuelhtampubolon/dynamic-pricing-engine
+cd dynamic-pricing-engine
 pip install -r requirements.txt
-
-# 2. Run deterministic preflight health check
-python run_local.py --check
-
-# 3. Launch live servers (FastAPI + Streamlit concurrently)
-python run_local.py</code></pre>
-          </div>
-        </div>
+python run_local.py --check     # seed lakehouse, P95 latency, guardrail fuzzing, ports
+python run_local.py             # FastAPI :8000 (docs at /docs) + Streamlit :8501
+pytest -v</code></pre>
+        </article>
       </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <p>Real-Time Dynamic Pricing &amp; Unit Economics Engine · MIT License · All data on this page is synthetic and generated in your browser.</p>
+      <p>Self-hosted assets only: <span class="mono">script-src 'self'</span>. <a href="https://github.com/samuelhtampubolon/dynamic-pricing-engine" rel="noopener noreferrer">Source on GitHub</a></p>
     </div>
-
-    <!-- Footer -->
-    <footer>
-      <p>Real-Time Dynamic Pricing & Unit Economics Engine · Built with FastAPI, DuckDB, Scikit-Learn & Streamlit · MIT License</p>
-    </footer>
-  </div>
-
-  <script>
-    // SKU Catalog Data
-    const SKU_CATALOG = {
-      "SKU-GPU-H100": {
-        name: "Tensor-Core GPU Compute Blade 80GB",
-        cogs: 21500.0,
-        minMargin: 0.22,
-        maxMsrp: 39500.0,
-        basePrice: 31000.0,
-        elasticity: -1.85,
-        alpha: 9.2
-      },
-      "SKU-NET-SWITCH-400G": {
-        name: "Ultra-Low Latency 400GbE Spine Switch",
-        cogs: 4800.0,
-        minMargin: 0.25,
-        maxMsrp: 9200.0,
-        basePrice: 7500.0,
-        elasticity: -1.45,
-        alpha: 7.8
-      },
-      "SKU-NVME-STORAGE-30TB": {
-        name: "Gen5 Enterprise NVMe U.3 30.72TB SSD",
-        cogs: 1850.0,
-        minMargin: 0.20,
-        maxMsrp: 3800.0,
-        basePrice: 2900.0,
-        elasticity: -2.10,
-        alpha: 8.5
-      },
-      "SKU-CNC-SPINDLE": {
-        name: "5-Axis High-Speed CNC Electro-Spindle",
-        cogs: 3400.0,
-        minMargin: 0.25,
-        maxMsrp: 6900.0,
-        basePrice: 5400.0,
-        elasticity: -1.35,
-        alpha: 7.2
-      },
-      "SKU-COLD-REEFER": {
-        name: "IoT Cold-Chain Telematics Controller",
-        cogs: 420.0,
-        minMargin: 0.30,
-        maxMsrp: 1150.0,
-        basePrice: 820.0,
-        elasticity: -2.30,
-        alpha: 9.8
-      }
-    };
-
-    let priceChart, elasticityChart, profitChart, banditProfitChart, banditArmsChart, cohortChart;
-
-    // Tab Switching
-    function switchTab(tabId, btn) {
-      document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-      
-      document.getElementById(tabId).classList.add('active');
-      btn.classList.add('active');
-
-      if (tabId === 'tab-elasticity') renderElasticityCharts();
-      if (tabId === 'tab-bandit') initBanditCharts();
-      if (tabId === 'tab-cohorts') renderCohortTable();
-    }
-
-    function onSkuChange() {
-      const sku = SKU_CATALOG[document.getElementById('sku-select').value];
-      document.getElementById('comp-input').value = sku.basePrice;
-      calculateQuote();
-      if (elasticityChart) renderElasticityCharts();
-    }
-
-    // Core Pricing Quote Calculator
-    function calculateQuote() {
-      const skuId = document.getElementById('sku-select').value;
-      const sku = SKU_CATALOG[skuId];
-      const inventory = parseInt(document.getElementById('inv-slider').value);
-      const competitorP = parseFloat(document.getElementById('comp-input').value) || sku.basePrice;
-      const surge = parseFloat(document.getElementById('surge-slider').value);
-
-      document.getElementById('inv-val').innerText = `${inventory} units`;
-      document.getElementById('surge-val').innerText = `${surge.toFixed(1)}x ${surge > 1 ? '(Surge)' : surge < 1 ? '(Dampened)' : '(Normal)'}`;
-
-      // Lerner optimal price: P* = cogs * (eps / (1 + eps))
-      let rawPStar = sku.cogs * (sku.elasticity / (1.0 + sku.elasticity));
-      let adjustedPrice = rawPStar;
-
-      // Competitor cross elasticity
-      const compRatio = competitorP / sku.basePrice;
-      adjustedPrice = 0.70 * adjustedPrice + 0.30 * (rawPStar * Math.pow(compRatio, 0.35));
-
-      // Inventory scarcity
-      const invRatio = Math.max(0.05, inventory / 500.0);
-      adjustedPrice *= Math.pow(1.0 / invRatio, 0.12);
-
-      // Surge multiplier
-      if (surge !== 1.0) {
-        adjustedPrice *= Math.pow(surge, 1.0 / Math.abs(sku.elasticity));
-      }
-
-      // Hard Guardrails Clamp
-      const floorP = sku.cogs * (1.0 + sku.minMargin);
-      const ceilingP = sku.maxMsrp;
-
-      let recP = adjustedPrice;
-      let status = "OPTIMAL_UNCONSTRAINED";
-      let badgeClass = "badge-optimal";
-
-      if (adjustedPrice < floorP) {
-        recP = floorP;
-        status = "CLAMPED_TO_MARGIN_FLOOR";
-        badgeClass = "badge-floor";
-      } else if (adjustedPrice > ceilingP) {
-        recP = ceilingP;
-        status = "CLAMPED_TO_MSRP_CEILING";
-        badgeClass = "badge-ceiling";
-      }
-
-      const marginUsd = recP - sku.cogs;
-      const marginPct = (marginUsd / recP) * 100.0;
-
-      // Update DOM
-      const badgeEl = document.getElementById('guardrail-badge');
-      badgeEl.className = `status-badge ${badgeClass}`;
-      badgeEl.innerText = status;
-
-      document.getElementById('quote-price').innerText = `$${recP.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-      document.getElementById('m-cogs').innerText = `$${sku.cogs.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-      document.getElementById('m-floor').innerText = `$${floorP.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-      document.getElementById('m-ceiling').innerText = `$${ceilingP.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-      document.getElementById('m-raw').innerText = `$${rawPStar.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-      document.getElementById('m-margin-usd').innerText = `$${marginUsd.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-      document.getElementById('m-margin-pct').innerText = `${marginPct.toFixed(1)}%`;
-
-      updatePriceChart(sku.cogs, floorP, recP, rawPStar, ceilingP);
-    }
-
-    function updatePriceChart(cogs, floor, rec, raw, ceiling) {
-      const ctx = document.getElementById('priceComparisonChart').getContext('2d');
-      if (priceChart) priceChart.destroy();
-
-      priceChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: ['COGS', 'Margin Floor', 'Recommended', 'Raw Optimal P*', 'MSRP Ceiling'],
-          datasets: [{
-            data: [cogs, floor, rec, raw, ceiling],
-            backgroundColor: ['#64748b', '#f59e0b', '#10b981', '#6366f1', '#f43f5e'],
-            borderRadius: 6
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false }
-          },
-          scales: {
-            y: {
-              grid: { color: 'rgba(255, 255, 255, 0.05)' },
-              ticks: { color: '#94a3b8', callback: v => `$${v.toLocaleString()}` }
-            },
-            x: {
-              grid: { display: false },
-              ticks: { color: '#94a3b8' }
-            }
-          }
-        }
-      });
-    }
-
-    // Elasticity Curves
-    function renderElasticityCharts() {
-      const sku = SKU_CATALOG[document.getElementById('sku-select').value];
-      const prices = [];
-      const quantities = [];
-      const profits = [];
-
-      const minP = sku.cogs * 1.05;
-      const maxP = sku.maxMsrp * 1.05;
-      const step = (maxP - minP) / 40;
-
-      for (let p = minP; p <= maxP; p += step) {
-        const q = Math.exp(sku.alpha + sku.elasticity * Math.log(p / sku.basePrice));
-        const profit = (p - sku.cogs) * q;
-        prices.push(`$${Math.round(p)}`);
-        quantities.push(Math.round(q));
-        profits.push(Math.round(profit));
-      }
-
-      // Chart 1: Demand Curve
-      const ctxE = document.getElementById('elasticityCurveChart').getContext('2d');
-      if (elasticityChart) elasticityChart.destroy();
-      elasticityChart = new Chart(ctxE, {
-        type: 'line',
-        data: {
-          labels: prices,
-          datasets: [{
-            label: 'Quantity Demanded (Q)',
-            data: quantities,
-            borderColor: '#06b6d4',
-            backgroundColor: 'rgba(6, 182, 212, 0.1)',
-            fill: true,
-            tension: 0.3
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { title: { display: true, text: 'Log-Log Demand Curve: Q(P)', color: '#fff' } },
-          scales: {
-            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
-            x: { grid: { display: false }, ticks: { color: '#94a3b8', maxTicksLimit: 8 } }
-          }
-        }
-      });
-
-      // Chart 2: Profit Curve
-      const ctxP = document.getElementById('profitCurveChart').getContext('2d');
-      if (profitChart) profitChart.destroy();
-      profitChart = new Chart(ctxP, {
-        type: 'line',
-        data: {
-          labels: prices,
-          datasets: [{
-            label: 'Expected Contribution Profit ($)',
-            data: profits,
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            fill: true,
-            tension: 0.3
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { title: { display: true, text: 'Profit Optimization Curve: Π(P) = (P - COGS) · Q', color: '#fff' } },
-          scales: {
-            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', callback: v => `$${v.toLocaleString()}` } },
-            x: { grid: { display: false }, ticks: { color: '#94a3b8', maxTicksLimit: 8 } }
-          }
-        }
-      });
-    }
-
-    // Bandit Simulator
-    function runBanditSimulation() {
-      const rounds = parseInt(document.getElementById('bandit-rounds').value) || 500;
-      const sku = SKU_CATALOG[document.getElementById('sku-select').value];
-
-      const arms = [sku.basePrice * 0.88, sku.basePrice * 0.95, sku.basePrice, sku.basePrice * 1.08, sku.basePrice * 1.18];
-      const armCounts = [0, 0, 0, 0, 0];
-      const armRewards = [0, 0, 0, 0, 0];
-
-      let cumBanditProfit = 0;
-      let cumStaticProfit = 0;
-      let cumRegret = 0;
-
-      const steps = [];
-      const banditHistory = [];
-      const staticHistory = [];
-
-      for (let t = 1; t <= rounds; t++) {
-        // Thompson Sampling choice (sample from normal prior)
-        let chosenIdx = 0;
-        let maxSample = -Infinity;
-        for (let i = 0; i < arms.length; i++) {
-          const mean = armCounts[i] === 0 ? 50000 : armRewards[i] / armCounts[i];
-          const variance = 10000 / (1 + armCounts[i]);
-          const sample = mean + (Math.random() - 0.5) * Math.sqrt(variance);
-          if (sample > maxSample) {
-            maxSample = sample;
-            chosenIdx = i;
-          }
-        }
-
-        const p = arms[chosenIdx];
-        const qBandit = Math.exp(sku.alpha + sku.elasticity * Math.log(p / sku.basePrice)) * (0.9 + Math.random() * 0.2);
-        const profitBandit = (p - sku.cogs) * qBandit;
-
-        const qStatic = Math.exp(sku.alpha) * (0.9 + Math.random() * 0.2);
-        const profitStatic = (sku.basePrice - sku.cogs) * qStatic;
-
-        armCounts[chosenIdx]++;
-        armRewards[chosenIdx] += profitBandit;
-
-        cumBanditProfit += profitBandit;
-        cumStaticProfit += profitStatic;
-        cumRegret += Math.max(0, 1500 - profitBandit);
-
-        if (t % Math.max(1, Math.floor(rounds / 25)) === 0 || t === rounds) {
-          steps.push(t);
-          banditHistory.push(Math.round(cumBanditProfit));
-          staticHistory.push(Math.round(cumStaticProfit));
-        }
-      }
-
-      const uplift = ((cumBanditProfit - cumStaticProfit) / cumStaticProfit) * 100.0;
-      document.getElementById('b-profit').innerText = `$${Math.round(cumBanditProfit).toLocaleString()}`;
-      document.getElementById('b-static').innerText = `$${Math.round(cumStaticProfit).toLocaleString()}`;
-      document.getElementById('b-uplift').innerText = `+${uplift.toFixed(1)}% Uplift vs Static`;
-      document.getElementById('b-regret').innerText = `$${Math.round(cumRegret).toLocaleString()}`;
-
-      // Update Bandit charts
-      const ctxB = document.getElementById('banditProfitChart').getContext('2d');
-      if (banditProfitChart) banditProfitChart.destroy();
-      banditProfitChart = new Chart(ctxB, {
-        type: 'line',
-        data: {
-          labels: steps,
-          datasets: [
-            { label: 'Bandit Cumulative Profit ($)', data: banditHistory, borderColor: '#10b981', tension: 0.2 },
-            { label: 'Static Baseline ($)', data: staticHistory, borderColor: '#94a3b8', borderDash: [5, 5], tension: 0.2 }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', callback: v => `$${v.toLocaleString()}` } },
-            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
-          }
-        }
-      });
-
-      const ctxA = document.getElementById('banditArmsChart').getContext('2d');
-      if (banditArmsChart) banditArmsChart.destroy();
-      banditArmsChart = new Chart(ctxA, {
-        type: 'bar',
-        data: {
-          labels: arms.map(a => `$${Math.round(a)}`),
-          datasets: [{
-            label: 'Exploration Rounds',
-            data: armCounts,
-            backgroundColor: ['#6366f1', '#06b6d4', '#10b981', '#f59e0b', '#f43f5e'],
-            borderRadius: 6
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { title: { display: true, text: 'Arm Allocation Distribution', color: '#fff' }, legend: { display: false } },
-          scales: {
-            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
-            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
-          }
-        }
-      });
-    }
-
-    function initBanditCharts() {
-      if (!banditProfitChart) runBanditSimulation();
-    }
-
-    // Cohort Ledger
-    const COHORTS = [
-      { id: "2025-01", arpu: 3661, gm: 0.523, churn: 0.0296, cac: 4186 },
-      { id: "2025-02", arpu: 3735, gm: 0.574, churn: 0.0423, cac: 4127 },
-      { id: "2025-03", arpu: 3785, gm: 0.518, churn: 0.0320, cac: 4119 },
-      { id: "2025-04", arpu: 3833, gm: 0.565, churn: 0.0414, cac: 3870 },
-      { id: "2025-05", arpu: 3886, gm: 0.489, churn: 0.0269, cac: 3832 },
-      { id: "2025-06", arpu: 3711, gm: 0.567, churn: 0.0256, cac: 3780 },
-      { id: "2025-07", arpu: 3909, gm: 0.549, churn: 0.0292, cac: 3883 },
-      { id: "2025-08", arpu: 3890, gm: 0.524, churn: 0.0231, cac: 3651 },
-      { id: "2025-09", arpu: 4015, gm: 0.541, churn: 0.0359, cac: 3600 },
-      { id: "2025-10", arpu: 3668, gm: 0.481, churn: 0.0263, cac: 3619 },
-      { id: "2025-11", arpu: 4000, gm: 0.509, churn: 0.0291, cac: 3452 },
-      { id: "2025-12", arpu: 3812, gm: 0.503, churn: 0.0227, cac: 3310 }
-    ];
-
-    function renderCohortTable() {
-      const tbody = document.getElementById('cohort-tbody');
-      tbody.innerHTML = '';
-
-      const labels = [];
-      const ltvs = [];
-      const cacs = [];
-
-      COHORTS.forEach(c => {
-        const ltv = Math.round((c.arpu * c.gm) / c.churn);
-        const ratio = (ltv / c.cac).toFixed(2);
-        const payback = (c.cac / (c.arpu * c.gm)).toFixed(1);
-
-        labels.push(c.id);
-        ltvs.push(ltv);
-        cacs.push(c.cac);
-
-        const row = `
-          <tr>
-            <td style="font-weight: 600;">${c.id}</td>
-            <td>$${c.arpu.toLocaleString()}</td>
-            <td>${(c.gm * 100).toFixed(1)}%</td>
-            <td>${(c.churn * 100).toFixed(2)}%</td>
-            <td>$${c.cac.toLocaleString()}</td>
-            <td style="font-weight: 600; color: var(--accent-emerald);">$${ltv.toLocaleString()}</td>
-            <td style="font-weight: 600; color: var(--accent-cyan);">${ratio}x</td>
-            <td>${payback} mo</td>
-          </tr>
-        `;
-        tbody.innerHTML += row;
-      });
-
-      const ctxC = document.getElementById('cohortLtvCacChart').getContext('2d');
-      if (cohortChart) cohortChart.destroy();
-      cohortChart = new Chart(ctxC, {
-        type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [
-            { label: 'Cohort LTV ($)', data: ltvs, backgroundColor: '#10b981', borderRadius: 4 },
-            { label: 'Cohort CAC ($)', data: cacs, backgroundColor: '#f59e0b', borderRadius: 4 }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', callback: v => `$${v.toLocaleString()}` } },
-            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
-          }
-        }
-      });
-    }
-
-    // Initialize on load
-    window.addEventListener('DOMContentLoaded', () => {
-      calculateQuote();
-      renderCohortTable();
-    });
-  </script>
+  </footer>
+  <div class="noscript-wrap"><noscript><p class="noscript">This page computes everything client-side and needs JavaScript enabled.</p></noscript></div>
 </body>
 </html>

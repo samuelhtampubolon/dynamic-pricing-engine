@@ -1,18 +1,117 @@
-"""Multi-Armed Bandit Price Experimentation Simulator (Thompson Sampling & Epsilon-Greedy)."""
+"""Multi-Armed Bandit Price Experimentation Simulator (Thompson Sampling, Epsilon-Greedy, UCB1)."""
 
 from __future__ import annotations
+
 import math
 from typing import Any, Dict, List, Optional
+
 import numpy as np
 
+from src.config import settings
 from src.lakehouse import lakehouse
-from src.services.elasticity_model import elasticity_service
+from src.services import pricing_math as pm
+from src.services.elasticity_model import SkuNotFoundError, elasticity_service
+
+DEFAULT_ARM_MULTIPLIERS = (0.85, 0.95, 1.00, 1.08, 1.18)
+
+
+def run_bandit(
+    arms: List[float],
+    expected_units: List[float],
+    unit_cogs: float,
+    baseline_price: float,
+    baseline_units: float,
+    horizon: int,
+    algorithm: str,
+    epsilon_param: float,
+    rng: np.random.Generator,
+    include_history: bool = True,
+) -> Dict[str, Any]:
+    """Pure simulation kernel (no I/O).
+
+    Each round is one trading day. Demand is Poisson(lambda(P)) with lambda from the
+    calibrated log-log model; the reward is gross profit (P - c) * Q.
+
+    * Thompson Sampling (Gaussian, flat prior): theta_i ~ N(xbar_i, s^2 / n_i)
+    * UCB1 (scaled):  xbar_i + s * sqrt(2 ln t / n_i)
+    * Epsilon-greedy: explore with probability eps, else argmax xbar_i
+    All policies pull every arm once first (round-robin initialisation).
+    Pseudo-regret R_T = sum_t (mu* - mu_{a_t}), mu_i = (P_i - c) * lambda_i.
+    """
+    k = len(arms)
+    prices = np.asarray(arms, dtype=np.float64)
+    lam = np.asarray(expected_units, dtype=np.float64)
+    mu = (prices - unit_cogs) * lam
+    best = int(np.argmax(mu))
+    mu_star = float(mu[best])
+    mu_static = (baseline_price - unit_cogs) * baseline_units
+
+    counts = np.zeros(k, dtype=np.int64)
+    means = np.zeros(k)
+    m2 = np.zeros(k)  # Welford sum of squared deviations
+
+    cum_rev = cum_profit = cum_static_rev = cum_static_profit = 0.0
+    cum_regret = 0.0
+    history: List[Dict[str, Any]] = []
+    sample_interval = max(1, horizon // 50)
+
+    for t in range(1, horizon + 1):
+        if t <= k:
+            idx = t - 1
+        else:
+            pooled_var = float(m2.sum() / max(1, counts.sum() - k))
+            s = math.sqrt(max(pooled_var, 1e-9))
+            if algorithm == "thompson_sampling":
+                idx = int(np.argmax(rng.normal(means, s / np.sqrt(counts))))
+            elif algorithm == "ucb1":
+                idx = int(np.argmax(means + s * np.sqrt(2.0 * math.log(t) / counts)))
+            else:  # epsilon_greedy
+                idx = int(rng.integers(0, k)) if rng.random() < epsilon_param else int(np.argmax(means))
+
+        q = float(rng.poisson(lam[idx]))
+        reward = (prices[idx] - unit_cogs) * q
+        counts[idx] += 1
+        delta = reward - means[idx]
+        means[idx] += delta / counts[idx]
+        m2[idx] += delta * (reward - means[idx])
+
+        q_static = float(rng.poisson(baseline_units))
+        cum_rev += prices[idx] * q
+        cum_profit += reward
+        cum_static_rev += baseline_price * q_static
+        cum_static_profit += (baseline_price - unit_cogs) * q_static
+        cum_regret += mu_star - mu[idx]
+
+        if include_history and (t % sample_interval == 0 or t == horizon):
+            history.append({
+                "step": t,
+                "cum_bandit_profit": round(float(cum_profit), 2),
+                "cum_static_profit": round(cum_static_profit, 2),
+                "cum_regret": round(float(cum_regret), 2),
+                "cum_static_regret": round(float(t * (mu_star - mu_static)), 2),
+                "bandit_uplift_pct": round(float(cum_profit - cum_static_profit) / max(1.0, abs(cum_static_profit)) * 100.0, 2),
+                "last_price": float(prices[idx]),
+            })
+
+    static_regret = horizon * (mu_star - mu_static)
+    return {
+        "counts": counts,
+        "means": means,
+        "mu": mu,
+        "best": best,
+        "cum_rev": cum_rev,
+        "cum_profit": cum_profit,
+        "cum_static_rev": cum_static_rev,
+        "cum_static_profit": cum_static_profit,
+        "cum_regret": cum_regret,
+        "static_regret": static_regret,
+        "history": history,
+    }
 
 
 class BanditSimulatorService:
-    """Simulates dynamic pricing experimentation using Thompson Sampling and Epsilon-Greedy
-
-    against a static price baseline under econometric demand curves.
+    """Simulates dynamic pricing experimentation against a static price baseline
+    under the tenant's calibrated econometric demand curve.
     """
 
     def run_simulation(
@@ -23,172 +122,86 @@ class BanditSimulatorService:
         algorithm: str = "thompson_sampling",
         epsilon_param: float = 0.1,
         candidate_prices: Optional[List[float]] = None,
+        seed: Optional[int] = None,
+        include_history: bool = True,
     ) -> Dict[str, Any]:
-        """Run A/B/n price experimentation simulation for specified horizon (capped at 5000)."""
-        # Enforce API4 resource consumption safety cap
-        horizon = min(5000, max(10, horizon))
+        """Run an A/B/n price experiment for ``horizon`` rounds (capped at MAX_SIMULATION_HORIZON)."""
+        if algorithm not in {"thompson_sampling", "epsilon_greedy", "ucb1"}:
+            raise ValueError("Unsupported bandit algorithm.")
+        horizon = int(min(settings.MAX_SIMULATION_HORIZON, max(10, horizon)))
+        epsilon_param = float(min(1.0, max(0.0, epsilon_param)))
 
-        # Retrieve SKU specs
         with lakehouse.get_connection(read_only=True) as conn:
             sku_row = conn.execute("""
                 SELECT unit_cogs, min_margin_pct, max_msrp, base_price
                 FROM sku_catalog
                 WHERE tenant_id = ? AND sku_id = ?
             """, [tenant_id, sku_id]).fetchone()
-
         if not sku_row:
-            raise ValueError(f"SKU '{sku_id}' not found for tenant '{tenant_id}'.")
+            raise SkuNotFoundError(f"SKU '{sku_id}' not found for the authenticated tenant.")
 
         unit_cogs, min_margin_pct, max_msrp, base_price = sku_row
-        margin_floor = unit_cogs * (1.0 + min_margin_pct)
+        floor = pm.margin_floor_price(unit_cogs, min_margin_pct)
 
-        # Retrieve econometric parameters
         fit = elasticity_service.fit_sku_elasticity(tenant_id, sku_id)
-        true_elasticity = fit["elasticity_epsilon"]
-        alpha = fit.get("alpha", 8.0)
+        eps = fit["elasticity_epsilon"] if fit["elasticity_epsilon"] < 0 else settings.PRIOR_ELASTICITY
 
-        # Build candidate arms (prices)
-        if not candidate_prices:
-            # Generate 5 reasonable price arms around base price within guardrails
-            multipliers = [0.85, 0.95, 1.00, 1.08, 1.18]
-            arms = [
-                round(max(margin_floor, min(max_msrp, base_price * m)), 2)
-                for m in multipliers
-            ]
-            arms = sorted(list(set(arms)))
-            if len(arms) < 2:
-                arms = [margin_floor, round((margin_floor + max_msrp) / 2, 2), max_msrp]
+        def lam(price: float) -> float:
+            return pm.expected_demand(fit["alpha"], eps, fit["cross_elasticity_beta"], price,
+                                      base_price, 1.0, fit["smearing_factor"])
+
+        # Candidate arms are always clamped into the guardrail envelope.
+        if candidate_prices:
+            raw_arms = [p for p in candidate_prices if math.isfinite(p) and p > 0]
         else:
-            # Clamp user provided arms to guardrails
-            arms = [
-                round(max(margin_floor, min(max_msrp, p)), 2)
-                for p in candidate_prices
-            ]
-            arms = sorted(list(set(arms)))
+            # Default grid around the static price plus the Lerner optimum; grid points
+            # within 1% of P* are dropped so the arena never contains near-duplicate arms.
+            p_star = fit["raw_optimal_price"]
+            raw_arms = [base_price * m for m in DEFAULT_ARM_MULTIPLIERS if abs(base_price * m / p_star - 1.0) > 0.01]
+            raw_arms.append(p_star)
+        arms = sorted({round(pm.clamp_to_guardrails(p, floor, max_msrp)[0], 2) for p in raw_arms})
+        if len(arms) < 2:
+            arms = sorted({round(floor, 2), round((floor + max_msrp) / 2.0, 2), round(max_msrp, 2)})
 
-        k_arms = len(arms)
-        static_price = base_price
-
-        # Demand function: Q(P) = exp(alpha + epsilon * ln(P/base_price) - 0.5)
-        def sample_demand(p: float) -> float:
-            log_price_ratio = math.log(p / base_price)
-            expected_q = math.exp(alpha + true_elasticity * log_price_ratio)
-            # Add stochastic Poisson/Normal market shock
-            noise = np.random.normal(0, max(1.0, expected_q * 0.12))
-            return max(0.0, expected_q + noise)
-
-        # Identify theoretical optimal arm for regret tracking
-        expected_arm_profits = []
-        for p in arms:
-            log_ratio = math.log(p / base_price)
-            exp_q = math.exp(alpha + true_elasticity * log_ratio)
-            expected_arm_profits.append((p - unit_cogs) * exp_q)
-        optimal_expected_profit = max(expected_arm_profits)
-
-        # Bandit state
-        arm_counts = np.zeros(k_arms, dtype=int)
-        arm_rewards_sum = np.zeros(k_arms, dtype=float)
-
-        # Thompson Sampling Gaussian Priors (mean, variance)
-        prior_means = np.array([expected_arm_profits[i] * 0.8 for i in range(k_arms)])
-        prior_vars = np.ones(k_arms) * (optimal_expected_profit * 0.5) ** 2
-
-        cum_bandit_rev = 0.0
-        cum_bandit_profit = 0.0
-        cum_static_rev = 0.0
-        cum_static_profit = 0.0
-        cum_regret = 0.0
-
-        history = []
-        sample_interval = max(1, horizon // 40)
-
-        for t in range(1, horizon + 1):
-            # Select arm
-            if algorithm == "thompson_sampling":
-                # Sample from posterior distribution of expected profit for each arm
-                sampled_values = np.random.normal(prior_means, np.sqrt(prior_vars))
-                chosen_idx = int(np.argmax(sampled_values))
-            else:
-                # Epsilon-Greedy
-                if np.random.random() < epsilon_param or t <= k_arms:
-                    chosen_idx = int(np.random.randint(0, k_arms))
-                else:
-                    avg_rewards = np.divide(
-                        arm_rewards_sum,
-                        np.maximum(1, arm_counts),
-                    )
-                    chosen_idx = int(np.argmax(avg_rewards))
-
-            chosen_price = arms[chosen_idx]
-
-            # Simulate demand for chosen price & static baseline
-            q_bandit = sample_demand(chosen_price)
-            rev_bandit = chosen_price * q_bandit
-            profit_bandit = (chosen_price - unit_cogs) * q_bandit
-
-            q_static = sample_demand(static_price)
-            rev_static = static_price * q_static
-            profit_static = (static_price - unit_cogs) * q_static
-
-            # Update Bandit state
-            arm_counts[chosen_idx] += 1
-            arm_rewards_sum[chosen_idx] += profit_bandit
-
-            # Update Bayesian posterior for Thompson Sampling
-            n = arm_counts[chosen_idx]
-            prior_vars[chosen_idx] = prior_vars[chosen_idx] / (1.0 + 0.05 * n)
-            prior_means[chosen_idx] = (
-                (prior_means[chosen_idx] * (n - 1) + profit_bandit) / n
-            )
-
-            # Accumulate totals
-            cum_bandit_rev += rev_bandit
-            cum_bandit_profit += profit_bandit
-            cum_static_rev += rev_static
-            cum_static_profit += profit_static
-            cum_regret += max(0.0, optimal_expected_profit - expected_arm_profits[chosen_idx])
-
-            if t % sample_interval == 0 or t == horizon:
-                history.append({
-                    "step": t,
-                    "cum_bandit_profit": round(cum_bandit_profit, 2),
-                    "cum_static_profit": round(cum_static_profit, 2),
-                    "cum_regret": round(cum_regret, 2),
-                    "bandit_uplift_pct": round(
-                        ((cum_bandit_profit - cum_static_profit) / max(1.0, cum_static_profit)) * 100.0,
-                        2,
-                    ),
-                    "last_price": chosen_price,
-                })
-
-        profit_uplift_pct = (
-            ((cum_bandit_profit - cum_static_profit) / max(1.0, cum_static_profit)) * 100.0
-        )
-        revenue_uplift_pct = (
-            ((cum_bandit_rev - cum_static_rev) / max(1.0, cum_static_rev)) * 100.0
+        rng = np.random.default_rng(seed)
+        sim = run_bandit(
+            arms=arms,
+            expected_units=[lam(p) for p in arms],
+            unit_cogs=unit_cogs,
+            baseline_price=base_price,
+            baseline_units=lam(base_price),
+            horizon=horizon,
+            algorithm=algorithm,
+            epsilon_param=epsilon_param,
+            rng=rng,
+            include_history=include_history,
         )
 
-        allocations = {f"${arms[i]:.2f}": int(arm_counts[i]) for i in range(k_arms)}
-        estimated_values = {
-            f"${arms[i]:.2f}": round(float(arm_rewards_sum[i] / max(1, arm_counts[i])), 2)
-            for i in range(k_arms)
-        }
-
+        base_profit = sim["cum_static_profit"]
+        base_rev = sim["cum_static_rev"]
+        labels = [f"${p:,.2f}" for p in arms]
+        static_regret = sim["static_regret"]
         return {
             "tenant_id": tenant_id,
             "sku_id": sku_id,
             "algorithm": algorithm,
             "horizon": horizon,
-            "baseline_revenue": round(cum_static_rev, 2),
-            "baseline_profit": round(cum_static_profit, 2),
-            "bandit_revenue": round(cum_bandit_rev, 2),
-            "bandit_profit": round(cum_bandit_profit, 2),
-            "cumulative_regret": round(cum_regret, 2),
-            "profit_uplift_pct": round(profit_uplift_pct, 2),
-            "revenue_uplift_pct": round(revenue_uplift_pct, 2),
-            "arm_allocations": allocations,
-            "arm_estimated_values": estimated_values,
-            "step_history": history,
+            "baseline_price": round(base_price, 2),
+            "baseline_revenue": round(base_rev, 2),
+            "baseline_profit": round(base_profit, 2),
+            "bandit_revenue": round(float(sim["cum_rev"]), 2),
+            "bandit_profit": round(float(sim["cum_profit"]), 2),
+            "cumulative_regret": round(float(sim["cum_regret"]), 2),
+            "static_cumulative_regret": round(float(static_regret), 2),
+            "regret_reduction_pct": round(float(1.0 - sim["cum_regret"] / static_regret) * 100.0, 2) if static_regret > 0 else 0.0,
+            "profit_uplift_pct": round(float(sim["cum_profit"] - base_profit) / max(1.0, abs(base_profit)) * 100.0, 2),
+            "revenue_uplift_pct": round(float(sim["cum_rev"] - base_rev) / max(1.0, abs(base_rev)) * 100.0, 2),
+            "optimal_arm_price": float(arms[sim["best"]]),
+            "optimal_arm_share": round(float(sim["counts"][sim["best"]]) / horizon, 4),
+            "arm_allocations": {labels[i]: int(sim["counts"][i]) for i in range(len(arms))},
+            "arm_estimated_values": {labels[i]: round(float(sim["means"][i]), 2) for i in range(len(arms))},
+            "arm_true_expected_profit": {labels[i]: round(float(sim["mu"][i]), 2) for i in range(len(arms))},
+            "step_history": sim["history"] if include_history else None,
         }
 
 
