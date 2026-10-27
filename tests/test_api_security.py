@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from src.api.main import app
-from src.security import create_access_token
+from src.security import DEMO_TENANT_SECRETS, create_access_token
 
 client = TestClient(app)
 
@@ -24,7 +24,7 @@ def test_jwt_token_issuance_and_access():
     """Verify tenant token generation and authenticated quote request."""
     t_res = client.post("/api/v1/auth/token", json={
         "tenant_id": "tenant_alpha",
-        "client_secret": "secure_secret_pass",
+        "client_secret": DEMO_TENANT_SECRETS["tenant_alpha"],
     })
     assert t_res.status_code == 200
     token = t_res.json()["access_token"]

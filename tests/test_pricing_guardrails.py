@@ -7,13 +7,6 @@ from src.services.elasticity_model import elasticity_service
 from src.services.unit_economics import unit_economics_service
 
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_test_lakehouse():
-    """Ensure lakehouse has seeded data for tests."""
-    from src.seed_market_data import seed_synthetic_lakehouse
-    seed_synthetic_lakehouse(days=180, seed=123)
-
-
 def test_margin_floor_circuit_breaker_cannot_be_violated():
     """CRITICAL RULE: No input combination can ever produce a price below unit_cogs * (1 + min_margin)."""
     tenant_id = "tenant_alpha"
@@ -67,7 +60,7 @@ def test_anti_poisoning_quality_gate_quarantines_anomalies():
     assert gate_res["rejected_poison_count"] > 0, "Poisoned events were not quarantined!"
 
     # Verify no poisoned events exist in Silver
-    with lakehouse.get_connection(read_only=False) as conn:
+    with lakehouse.get_connection(read_only=True) as conn:
         poison_in_silver = conn.execute("""
             SELECT COUNT(*) 
             FROM silver_validated_demand

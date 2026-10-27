@@ -1,42 +1,63 @@
-version: '3.8'
-
+# Secrets are read from .env (see .env.example). Ports bind to loopback only.
 services:
   pricing-api:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: dynamic-pricing-api
-    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000
-    ports:
-      - "8000:8000"
+    env_file: .env
     environment:
-      - APP_ENV=production
-      - HOST=0.0.0.0
-      - API_PORT=8000
-      - DUCKDB_PATH=/app/data/pricing_lakehouse.duckdb
+      APP_ENV: ${APP_ENV:-production}
+      HOST: 0.0.0.0
+      ALLOWED_HOSTS: 127.0.0.1,localhost,pricing-api
+      DUCKDB_PATH: /app/data/pricing_lakehouse.duckdb
+    ports:
+      - "127.0.0.1:8000:8000"
     volumes:
-      - ./data:/app/data
+      - lakehouse:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
 
   pricing-dashboard:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: dynamic-pricing-dashboard
-    command: streamlit run src/ui/dashboard.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
-    ports:
-      - "8501:8501"
+    command: >
+      python -m streamlit run src/ui/dashboard.py
+      --server.port 8501 --server.address 0.0.0.0 --server.headless true
+      --server.enableXsrfProtection true --browser.gatherUsageStats false --theme.base dark
+    env_file: .env
     environment:
-      - HOST=0.0.0.0
-      - STREAMLIT_PORT=8501
-      - DUCKDB_PATH=/app/data/pricing_lakehouse.duckdb
+      DUCKDB_PATH: /app/data/pricing_lakehouse.duckdb
+      DUCKDB_READ_ONLY: "true"
+      HOME: /tmp
+    ports:
+      - "127.0.0.1:8501:8501"
     volumes:
-      - ./data:/app/data
+      - lakehouse:/app/data:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=4).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
     depends_on:
-      - pricing-api
+      pricing-api:
+        condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  lakehouse:
