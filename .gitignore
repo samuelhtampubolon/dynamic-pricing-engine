@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Testing & cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment variables
+.env
+
+# DuckDB lock and write-ahead log files
+data/*.duckdb.wal
+data/*.duckdb.tmp
+
+# Streamlit config
+.streamlit/
+
+# OS generated
+.DS_Store
+Thumbs.db

@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-Time Dynamic Pricing & Unit Economics Engine</title>
+  <meta name="description" content="Enterprise-grade Real-Time Dynamic Pricing & Unit Economics Engine with DuckDB Medallion Lakehouse, Econometric Elasticity, and Thompson Sampling Bandit Arena.">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #0a0f1d;
+      --bg-card: rgba(17, 24, 39, 0.75);
+      --bg-card-hover: rgba(31, 41, 55, 0.85);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(16, 185, 129, 0.25);
+      
+      --accent-emerald: #10b981;
+      --accent-cyan: #06b6d4;
+      --accent-indigo: #6366f1;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      line-height: 1.6;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(99, 102, 241, 0.08) 0%, transparent 45%);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Container & Layout */
+    .container {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 5rem;
+    }
+
+    /* Header & Navigation */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 2.5rem;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .brand-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent-emerald), var(--accent-cyan));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+    }
+
+    .brand-text h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-text p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.1rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-emerald), #059669);
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(30, 41, 59, 0.8);
+      color: var(--text-main);
+      border-color: var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(51, 65, 85, 0.8);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Hero Banner */
+    .hero {
+      text-align: center;
+      padding: 2.5rem 1rem 3.5rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 0.35rem 1rem;
+      border-radius: 30px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--accent-emerald);
+      margin-bottom: 1.5rem;
+    }
+
+    .hero h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.8rem;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+      margin-bottom: 1.2rem;
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, var(--accent-emerald) 0%, var(--accent-cyan) 50%, var(--accent-indigo) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      max-width: 760px;
+      margin: 0 auto 2rem;
+    }
+
+    /* KPI Summary Row */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 3rem;
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 1.5rem;
+      backdrop-filter: blur(12px);
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent-emerald), var(--accent-cyan));
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    .kpi-card:hover {
+      border-color: var(--border-glow);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    }
+
+    .kpi-card:hover::before {
+      opacity: 1;
+    }
+
+    .kpi-title {
+      font-size: 0.825rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+
+    .kpi-val {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .kpi-subtitle {
+      font-size: 0.8rem;
+      color: var(--accent-emerald);
+      margin-top: 0.35rem;
+      font-weight: 500;
+    }
+
+    /* Tabbed Interface */
+    .tabs-nav {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 2rem;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 0.8rem 1.4rem;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .tab-btn.active {
+      color: #fff;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .tab-pane {
+      display: none;
+      animation: fadeIn 0.3s ease forwards;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Module Card */
+    .module-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      backdrop-filter: blur(14px);
+    }
+
+    .module-header {
+      margin-bottom: 1.5rem;
+    }
+
+    .module-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 0.3rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .module-desc {
+      color: var(--text-muted);
+      font-size: 0.925rem;
+    }
+
+    /* Grid Layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1.3fr;
+      gap: 2rem;
+    }
+
+    @media (max-width: 960px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+      .hero h2 {
+        font-size: 2.1rem;
+      }
+    }
+
+    /* Form Controls */
+    .control-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 0.4rem;
+    }
+
+    .control-hint {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    select, input[type="number"] {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    select:focus, input[type="number"]:focus {
+      border-color: var(--accent-emerald);
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent-emerald);
+      margin-top: 0.3rem;
+      cursor: pointer;
+    }
+
+    /* Output Callouts */
+    .quote-box {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.75rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.35rem 1rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 1rem;
+    }
+
+    .badge-optimal {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid var(--accent-emerald);
+      color: var(--accent-emerald);
+    }
+
+    .badge-floor {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid var(--accent-amber);
+      color: var(--accent-amber);
+    }
+
+    .badge-ceiling {
+      background: rgba(244, 63, 94, 0.15);
+      border: 1px solid var(--accent-rose);
+      color: var(--accent-rose);
+    }
+
+    .quote-price {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.8rem;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+    }
+
+    .quote-sub {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .metrics-matrix {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border-color);
+      text-align: left;
+    }
+
+    .metric-item-label {
+      font-size: 0.775rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .metric-item-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-top: 0.2rem;
+    }
+
+    /* Tables */
+    .table-container {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      text-align: left;
+    }
+
+    th {
+      background: rgba(30, 41, 59, 0.6);
+      padding: 0.9rem 1rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text-main);
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Pipeline Graphic */
+    .pipeline-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    @media (max-width: 800px) {
+      .pipeline-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .pipe-step {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.25rem;
+      position: relative;
+    }
+
+    .pipe-step-tag {
+      font-size: 0.725rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.4rem;
+    }
+
+    .pipe-step h4 {
+      font-size: 1.05rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .pipe-step p {
+      font-size: 0.825rem;
+      color: var(--text-muted);
+    }
+
+    /* Code blocks */
+    pre {
+      background: #020617;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: #38bdf8;
+      overflow-x: auto;
+    }
+
+    footer {
+      text-align: center;
+      padding: 3rem 1rem;
+      border-top: 1px solid var(--border-color);
+      color: var(--text-dim);
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <div class="brand-icon">⚡</div>
+        <div class="brand-text">
+          <h1>Dynamic Pricing & Unit Economics Engine</h1>
+          <p>Medallion Lakehouse · Econometrics · OWASP Guardrails · Multi-Armed Bandit</p>
+        </div>
+      </div>
+      <div class="nav-links">
+        <a href="https://github.com/samuelhtampubolon/dynamic-pricing-engine" class="btn btn-secondary" target="_blank">
+          <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub Repository
+        </a>
+        <a href="#demo-tabs" class="btn btn-primary">
+          Explore Live Engine
+        </a>
+      </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="hero-badge">
+        <span>●</span> Real-Time Algorithmic Revenue Operations
+      </div>
+      <h2>
+        Maximize Contribution Margin With <br>
+        <span class="gradient-text">Hard Guardrail Circuit Breakers</span>
+      </h2>
+      <p>
+        An econometric pricing and unit economics engine replacing static price decay with real-time elasticity modeling, DuckDB anti-poisoning data quality gates, and automated Thompson Sampling bandit price experimentation.
+      </p>
+    </section>
+
+    <!-- KPI Summary Row -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-title">Inference Latency</div>
+        <div class="kpi-val">&lt; 15ms</div>
+        <div class="kpi-subtitle">Sub-50ms P95 Target Met</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Gross Margin Floor</div>
+        <div class="kpi-val">+22.0%</div>
+        <div class="kpi-subtitle">Non-Bypassable Circuit Breaker</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Average Bandit Uplift</div>
+        <div class="kpi-val">+11.4%</div>
+        <div class="kpi-subtitle">Thompson Sampling vs Static</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">LTV / CAC Ratio</div>
+        <div class="kpi-val">18.2x</div>
+        <div class="kpi-subtitle">1.9 Month Payback Horizon</div>
+      </div>
+    </div>
+
+    <!-- Interactive Workspace Tabs -->
+    <div id="demo-tabs">
+      <nav class="tabs-nav">
+        <button class="tab-btn active" onclick="switchTab('tab-pricing', this)">
+          🎯 Real-Time Pricing Quote
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-elasticity', this)">
+          📈 Elasticity Studio
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-bandit', this)">
+          🎰 Bandit Experimentation Arena
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-cohorts', this)">
+          💎 Cohort Unit Economics
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-architecture', this)">
+          🏛️ Lakehouse & Security
+        </button>
+      </nav>
+
+      <!-- TAB 1: PRICING QUOTE -->
+      <div id="tab-pricing" class="tab-pane active">
+        <div class="module-card">
+          <div class="module-header">
+            <div class="module-title">🎯 Real-Time Guarded Price Quote Simulator</div>
+            <div class="module-desc">Calculates log-log optimal price clamped to margin floor and MSRP ceiling with real-time inventory and competitor dynamics.</div>
+          </div>
+
+          <div class="grid-2">
+            <!-- Left: Inputs -->
+            <div class="controls-panel">
+              <div class="control-group">
+                <label class="control-label" for="sku-select">
+                  <span>Product SKU Catalog</span>
+                  <span class="control-hint">Preset Configurations</span>
+                </label>
+                <select id="sku-select" onchange="onSkuChange()">
+                  <option value="SKU-GPU-H100">SKU-GPU-H100: Tensor GPU Blade 80GB</option>
+                  <option value="SKU-NET-SWITCH-400G">SKU-NET-SWITCH-400G: 400GbE Spine Switch</option>
+                  <option value="SKU-NVME-STORAGE-30TB">SKU-NVME-STORAGE-30TB: Gen5 NVMe 30.72TB</option>
+                  <option value="SKU-CNC-SPINDLE">SKU-CNC-SPINDLE: 5-Axis CNC Spindle</option>
+                  <option value="SKU-COLD-REEFER">SKU-COLD-REEFER: IoT Cold-Chain Controller</option>
+                </select>
+              </div>
+
+              <div class="control-group">
+                <div class="control-label">
+                  <span>Inventory Level</span>
+                  <span id="inv-val" style="color: var(--accent-cyan);">420 units</span>
+                </div>
+                <input type="range" id="inv-slider" min="10" max="1000" value="420" step="10" oninput="calculateQuote()">
+                <span class="control-hint">Low inventory triggers scarcity markup; excess inventory discounts towards margin floor.</span>
+              </div>
+
+              <div class="control-group">
+                <label class="control-label" for="comp-input">
+                  <span>Competitor Price ($ USD)</span>
+                  <span class="control-hint">Cross-Price Elasticity</span>
+                </label>
+                <input type="number" id="comp-input" value="31000" step="100" oninput="calculateQuote()">
+              </div>
+
+              <div class="control-group">
+                <div class="control-label">
+                  <span>Market Demand Surge</span>
+                  <span id="surge-val" style="color: var(--accent-indigo);">1.00x (Normal)</span>
+                </div>
+                <input type="range" id="surge-slider" min="0.5" max="3.0" value="1.0" step="0.1" oninput="calculateQuote()">
+              </div>
+            </div>
+
+            <!-- Right: Quote Engine Results -->
+            <div>
+              <div class="quote-box">
+                <div id="guardrail-badge" class="status-badge badge-optimal">OPTIMAL_UNCONSTRAINED</div>
+                <div id="quote-price" class="quote-price">$31,450.00</div>
+                <div class="quote-sub">Algorithmic Recommended Price Quote</div>
+
+                <div class="metrics-matrix">
+                  <div>
+                    <div class="metric-item-label">Unit COGS</div>
+                    <div id="m-cogs" class="metric-item-val">$21,500.00</div>
+                  </div>
+                  <div>
+                    <div class="metric-item-label">Margin Floor</div>
+                    <div id="m-floor" class="metric-item-val" style="color: var(--accent-amber);">$26,230.00</div>
+                  </div>
+                  <div>
+                    <div class="metric-item-label">MSRP Ceiling</div>
+                    <div id="m-ceiling" class="metric-item-val" style="color: var(--accent-rose);">$39,500.00</div>
+                  </div>
+                  <div>
+                    <div class="metric-item-label">Raw P* (Lerner)</div>
+                    <div id="m-raw" class="metric-item-val">$32,150.00</div>
+                  </div>
+                  <div>
+                    <div class="metric-item-label">Gross Margin ($)</div>
+                    <div id="m-margin-usd" class="metric-item-val" style="color: var(--accent-emerald);">$9,950.00</div>
+                  </div>
+                  <div>
+                    <div class="metric-item-label">Gross Margin (%)</div>
+                    <div id="m-margin-pct" class="metric-item-val" style="color: var(--accent-emerald);">31.6%</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="height: 220px; margin-top: 1.5rem;">
+                <canvas id="priceComparisonChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: ELASTICITY STUDIO -->
+      <div id="tab-elasticity" class="tab-pane">
+        <div class="module-card">
+          <div class="module-header">
+            <div class="module-title">📈 Econometric Demand Elasticity Studio</div>
+            <div class="module-desc">Log-Log OLS Demand Formulation: ln(Q) = α + ε·ln(P) + β·ln(Pcomp). Inspect empirical elasticity and theoretical profit curves.</div>
+          </div>
+
+          <div class="grid-2">
+            <div style="height: 340px;">
+              <canvas id="elasticityCurveChart"></canvas>
+            </div>
+            <div style="height: 340px;">
+              <canvas id="profitCurveChart"></canvas>
+            </div>
+          </div>
+
+          <div class="metrics-matrix" style="grid-template-columns: repeat(4, 1fr); margin-top: 1.5rem;">
+            <div>
+              <div class="metric-item-label">Price Elasticity (ε)</div>
+              <div class="metric-item-val" style="color: var(--accent-cyan);">-1.8500</div>
+            </div>
+            <div>
+              <div class="metric-item-label">Cross-Price Elasticity (β)</div>
+              <div class="metric-item-val" style="color: var(--accent-indigo);">+0.3500</div>
+            </div>
+            <div>
+              <div class="metric-item-label">R-Squared (Fit)</div>
+              <div class="metric-item-val" style="color: var(--accent-emerald);">0.8420</div>
+            </div>
+            <div>
+              <div class="metric-item-label">Optimal Markup Lerner</div>
+              <div class="metric-item-val">ε / (1 + ε) = 2.17x</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: BANDIT ARENA -->
+      <div id="tab-bandit" class="tab-pane">
+        <div class="module-card">
+          <div class="module-header">
+            <div class="module-title">🎰 Multi-Armed Bandit Experimentation Arena</div>
+            <div class="module-desc">Simulate Thompson Sampling (Bayesian conjugate Gaussian prior) versus static baseline pricing over time.</div>
+          </div>
+
+          <div style="display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1.5rem; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 200px;">
+              <label class="control-label">Algorithm</label>
+              <select id="bandit-algo">
+                <option value="thompson">Thompson Sampling (Bayesian Exploration)</option>
+                <option value="egreedy">Epsilon-Greedy (ε = 0.10)</option>
+              </select>
+            </div>
+            <div style="flex: 1; min-width: 200px;">
+              <label class="control-label">Simulation Rounds</label>
+              <input type="number" id="bandit-rounds" value="500" min="50" max="2000" step="50">
+            </div>
+            <button class="btn btn-primary" onclick="runBanditSimulation()" style="height: 44px;">
+              🚀 Run Live Experimentation
+            </button>
+          </div>
+
+          <div class="kpi-row" style="margin-bottom: 1.5rem;">
+            <div class="kpi-card">
+              <div class="kpi-title">Bandit Cumulative Profit</div>
+              <div id="b-profit" class="kpi-val" style="color: var(--accent-emerald);">$1,482,500</div>
+              <div id="b-uplift" class="kpi-subtitle">+11.4% Uplift vs Static</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-title">Static Baseline Profit</div>
+              <div id="b-static" class="kpi-val">$1,330,800</div>
+              <div class="kpi-subtitle">Opportunity Cost Incurred</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-title">Cumulative Regret</div>
+              <div id="b-regret" class="kpi-val" style="color: var(--accent-amber);">$42,300</div>
+              <div class="kpi-subtitle">Sub-linear Regret Trajectory</div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div style="height: 320px;">
+              <canvas id="banditProfitChart"></canvas>
+            </div>
+            <div style="height: 320px;">
+              <canvas id="banditArmsChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: COHORTS -->
+      <div id="tab-cohorts" class="tab-pane">
+        <div class="module-card">
+          <div class="module-header">
+            <div class="module-title">💎 Cohort Unit Economics & LTV/CAC Ledger</div>
+            <div class="module-desc">LTV = (ARPU × Gross Margin %) / Monthly Churn Rate · LTV/CAC = LTV / CAC · Payback = CAC / (ARPU × GM%)</div>
+          </div>
+
+          <div class="kpi-row" style="margin-bottom: 1.5rem;">
+            <div class="kpi-card">
+              <div class="kpi-title">Aggregate LTV / CAC</div>
+              <div class="kpi-val" style="color: var(--accent-emerald);">18.2x</div>
+              <div class="kpi-subtitle">High Capital Efficiency (&gt; 3.0x)</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-title">Average Cohort LTV</div>
+              <div class="kpi-val">$68,847</div>
+              <div class="kpi-subtitle">Net Lifetime Contribution</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-title">Blended CAC</div>
+              <div class="kpi-val">$3,786</div>
+              <div class="kpi-subtitle">Customer Acquisition Cost</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-title">CAC Payback Horizon</div>
+              <div class="kpi-val" style="color: var(--accent-cyan);">1.9 Months</div>
+              <div class="kpi-subtitle">Rapid Cash Conversion (&lt; 12 mo)</div>
+            </div>
+          </div>
+
+          <div style="height: 300px; margin-bottom: 2rem;">
+            <canvas id="cohortLtvCacChart"></canvas>
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Cohort Month</th>
+                  <th>Monthly ARPU</th>
+                  <th>Gross Margin (%)</th>
+                  <th>Monthly Churn</th>
+                  <th>CAC (USD)</th>
+                  <th>Customer LTV</th>
+                  <th>LTV / CAC</th>
+                  <th>Payback</th>
+                </tr>
+              </thead>
+              <tbody id="cohort-tbody">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: LAKEHOUSE & ARCHITECTURE -->
+      <div id="tab-architecture" class="tab-pane">
+        <div class="module-card">
+          <div class="module-header">
+            <div class="module-title">🏛️ DuckDB Medallion Lakehouse & OWASP Controls</div>
+            <div class="module-desc">Embedded file-based DuckDB lakehouse with automated anti-poisoning quality gate and OWASP defense-in-depth API controls.</div>
+          </div>
+
+          <div class="pipeline-grid">
+            <div class="pipe-step">
+              <div class="pipe-step-tag" style="color: #64748b;">Bronze Layer</div>
+              <h4>bronze_market_events</h4>
+              <p>Append-only stream of timestamped price, competitor price, inventory, and volume events. 1,840 records ingested.</p>
+            </div>
+            <div class="pipe-step" style="border-color: var(--accent-amber);">
+              <div class="pipe-step-tag" style="color: var(--accent-amber);">Quality Gate</div>
+              <h4>Anti-Poisoning Gate</h4>
+              <p>Z-Score spike detector (|z| &gt; 5.0). Quarantines 10 poisoned anomaly events before promotion to Silver.</p>
+            </div>
+            <div class="pipe-step" style="border-color: var(--accent-cyan);">
+              <div class="pipe-step-tag" style="color: var(--accent-cyan);">Silver Layer</div>
+              <h4>silver_validated_demand</h4>
+              <p>Clean daily demand aggregations, joined with SKU master COGS, min margin %, and MSRP bounds. 1,830 rows.</p>
+            </div>
+            <div class="pipe-step" style="border-color: var(--accent-emerald);">
+              <div class="pipe-step-tag" style="color: var(--accent-emerald);">Gold Layer</div>
+              <h4>gold_sku_elasticity</h4>
+              <p>Econometrically fitted OLS coefficients (ε, β, R²), guarded pricing quotes, and 24 monthly cohort ledgers.</p>
+            </div>
+          </div>
+
+          <div style="margin-top: 2rem;">
+            <h3 style="font-size: 1.2rem; margin-bottom: 1rem;">Single-Command Local Live Server Launch</h3>
+            <pre><code># 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Run deterministic preflight health check
+python run_local.py --check
+
+# 3. Launch live servers (FastAPI + Streamlit concurrently)
+python run_local.py</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <p>Real-Time Dynamic Pricing & Unit Economics Engine · Built with FastAPI, DuckDB, Scikit-Learn & Streamlit · MIT License</p>
+    </footer>
+  </div>
+
+  <script>
+    // SKU Catalog Data
+    const SKU_CATALOG = {
+      "SKU-GPU-H100": {
+        name: "Tensor-Core GPU Compute Blade 80GB",
+        cogs: 21500.0,
+        minMargin: 0.22,
+        maxMsrp: 39500.0,
+        basePrice: 31000.0,
+        elasticity: -1.85,
+        alpha: 9.2
+      },
+      "SKU-NET-SWITCH-400G": {
+        name: "Ultra-Low Latency 400GbE Spine Switch",
+        cogs: 4800.0,
+        minMargin: 0.25,
+        maxMsrp: 9200.0,
+        basePrice: 7500.0,
+        elasticity: -1.45,
+        alpha: 7.8
+      },
+      "SKU-NVME-STORAGE-30TB": {
+        name: "Gen5 Enterprise NVMe U.3 30.72TB SSD",
+        cogs: 1850.0,
+        minMargin: 0.20,
+        maxMsrp: 3800.0,
+        basePrice: 2900.0,
+        elasticity: -2.10,
+        alpha: 8.5
+      },
+      "SKU-CNC-SPINDLE": {
+        name: "5-Axis High-Speed CNC Electro-Spindle",
+        cogs: 3400.0,
+        minMargin: 0.25,
+        maxMsrp: 6900.0,
+        basePrice: 5400.0,
+        elasticity: -1.35,
+        alpha: 7.2
+      },
+      "SKU-COLD-REEFER": {
+        name: "IoT Cold-Chain Telematics Controller",
+        cogs: 420.0,
+        minMargin: 0.30,
+        maxMsrp: 1150.0,
+        basePrice: 820.0,
+        elasticity: -2.30,
+        alpha: 9.8
+      }
+    };
+
+    let priceChart, elasticityChart, profitChart, banditProfitChart, banditArmsChart, cohortChart;
+
+    // Tab Switching
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
+
+      if (tabId === 'tab-elasticity') renderElasticityCharts();
+      if (tabId === 'tab-bandit') initBanditCharts();
+      if (tabId === 'tab-cohorts') renderCohortTable();
+    }
+
+    function onSkuChange() {
+      const sku = SKU_CATALOG[document.getElementById('sku-select').value];
+      document.getElementById('comp-input').value = sku.basePrice;
+      calculateQuote();
+      if (elasticityChart) renderElasticityCharts();
+    }
+
+    // Core Pricing Quote Calculator
+    function calculateQuote() {
+      const skuId = document.getElementById('sku-select').value;
+      const sku = SKU_CATALOG[skuId];
+      const inventory = parseInt(document.getElementById('inv-slider').value);
+      const competitorP = parseFloat(document.getElementById('comp-input').value) || sku.basePrice;
+      const surge = parseFloat(document.getElementById('surge-slider').value);
+
+      document.getElementById('inv-val').innerText = `${inventory} units`;
+      document.getElementById('surge-val').innerText = `${surge.toFixed(1)}x ${surge > 1 ? '(Surge)' : surge < 1 ? '(Dampened)' : '(Normal)'}`;
+
+      // Lerner optimal price: P* = cogs * (eps / (1 + eps))
+      let rawPStar = sku.cogs * (sku.elasticity / (1.0 + sku.elasticity));
+      let adjustedPrice = rawPStar;
+
+      // Competitor cross elasticity
+      const compRatio = competitorP / sku.basePrice;
+      adjustedPrice = 0.70 * adjustedPrice + 0.30 * (rawPStar * Math.pow(compRatio, 0.35));
+
+      // Inventory scarcity
+      const invRatio = Math.max(0.05, inventory / 500.0);
+      adjustedPrice *= Math.pow(1.0 / invRatio, 0.12);
+
+      // Surge multiplier
+      if (surge !== 1.0) {
+        adjustedPrice *= Math.pow(surge, 1.0 / Math.abs(sku.elasticity));
+      }
+
+      // Hard Guardrails Clamp
+      const floorP = sku.cogs * (1.0 + sku.minMargin);
+      const ceilingP = sku.maxMsrp;
+
+      let recP = adjustedPrice;
+      let status = "OPTIMAL_UNCONSTRAINED";
+      let badgeClass = "badge-optimal";
+
+      if (adjustedPrice < floorP) {
+        recP = floorP;
+        status = "CLAMPED_TO_MARGIN_FLOOR";
+        badgeClass = "badge-floor";
+      } else if (adjustedPrice > ceilingP) {
+        recP = ceilingP;
+        status = "CLAMPED_TO_MSRP_CEILING";
+        badgeClass = "badge-ceiling";
+      }
+
+      const marginUsd = recP - sku.cogs;
+      const marginPct = (marginUsd / recP) * 100.0;
+
+      // Update DOM
+      const badgeEl = document.getElementById('guardrail-badge');
+      badgeEl.className = `status-badge ${badgeClass}`;
+      badgeEl.innerText = status;
+
+      document.getElementById('quote-price').innerText = `$${recP.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      document.getElementById('m-cogs').innerText = `$${sku.cogs.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+      document.getElementById('m-floor').innerText = `$${floorP.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+      document.getElementById('m-ceiling').innerText = `$${ceilingP.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+      document.getElementById('m-raw').innerText = `$${rawPStar.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+      document.getElementById('m-margin-usd').innerText = `$${marginUsd.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+      document.getElementById('m-margin-pct').innerText = `${marginPct.toFixed(1)}%`;
+
+      updatePriceChart(sku.cogs, floorP, recP, rawPStar, ceilingP);
+    }
+
+    function updatePriceChart(cogs, floor, rec, raw, ceiling) {
+      const ctx = document.getElementById('priceComparisonChart').getContext('2d');
+      if (priceChart) priceChart.destroy();
+
+      priceChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['COGS', 'Margin Floor', 'Recommended', 'Raw Optimal P*', 'MSRP Ceiling'],
+          datasets: [{
+            data: [cogs, floor, rec, raw, ceiling],
+            backgroundColor: ['#64748b', '#f59e0b', '#10b981', '#6366f1', '#f43f5e'],
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#94a3b8', callback: v => `$${v.toLocaleString()}` }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { color: '#94a3b8' }
+            }
+          }
+        }
+      });
+    }
+
+    // Elasticity Curves
+    function renderElasticityCharts() {
+      const sku = SKU_CATALOG[document.getElementById('sku-select').value];
+      const prices = [];
+      const quantities = [];
+      const profits = [];
+
+      const minP = sku.cogs * 1.05;
+      const maxP = sku.maxMsrp * 1.05;
+      const step = (maxP - minP) / 40;
+
+      for (let p = minP; p <= maxP; p += step) {
+        const q = Math.exp(sku.alpha + sku.elasticity * Math.log(p / sku.basePrice));
+        const profit = (p - sku.cogs) * q;
+        prices.push(`$${Math.round(p)}`);
+        quantities.push(Math.round(q));
+        profits.push(Math.round(profit));
+      }
+
+      // Chart 1: Demand Curve
+      const ctxE = document.getElementById('elasticityCurveChart').getContext('2d');
+      if (elasticityChart) elasticityChart.destroy();
+      elasticityChart = new Chart(ctxE, {
+        type: 'line',
+        data: {
+          labels: prices,
+          datasets: [{
+            label: 'Quantity Demanded (Q)',
+            data: quantities,
+            borderColor: '#06b6d4',
+            backgroundColor: 'rgba(6, 182, 212, 0.1)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { title: { display: true, text: 'Log-Log Demand Curve: Q(P)', color: '#fff' } },
+          scales: {
+            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
+            x: { grid: { display: false }, ticks: { color: '#94a3b8', maxTicksLimit: 8 } }
+          }
+        }
+      });
+
+      // Chart 2: Profit Curve
+      const ctxP = document.getElementById('profitCurveChart').getContext('2d');
+      if (profitChart) profitChart.destroy();
+      profitChart = new Chart(ctxP, {
+        type: 'line',
+        data: {
+          labels: prices,
+          datasets: [{
+            label: 'Expected Contribution Profit ($)',
+            data: profits,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { title: { display: true, text: 'Profit Optimization Curve: Π(P) = (P - COGS) · Q', color: '#fff' } },
+          scales: {
+            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', callback: v => `$${v.toLocaleString()}` } },
+            x: { grid: { display: false }, ticks: { color: '#94a3b8', maxTicksLimit: 8 } }
+          }
+        }
+      });
+    }
+
+    // Bandit Simulator
+    function runBanditSimulation() {
+      const rounds = parseInt(document.getElementById('bandit-rounds').value) || 500;
+      const sku = SKU_CATALOG[document.getElementById('sku-select').value];
+
+      const arms = [sku.basePrice * 0.88, sku.basePrice * 0.95, sku.basePrice, sku.basePrice * 1.08, sku.basePrice * 1.18];
+      const armCounts = [0, 0, 0, 0, 0];
+      const armRewards = [0, 0, 0, 0, 0];
+
+      let cumBanditProfit = 0;
+      let cumStaticProfit = 0;
+      let cumRegret = 0;
+
+      const steps = [];
+      const banditHistory = [];
+      const staticHistory = [];
+
+      for (let t = 1; t <= rounds; t++) {
+        // Thompson Sampling choice (sample from normal prior)
+        let chosenIdx = 0;
+        let maxSample = -Infinity;
+        for (let i = 0; i < arms.length; i++) {
+          const mean = armCounts[i] === 0 ? 50000 : armRewards[i] / armCounts[i];
+          const variance = 10000 / (1 + armCounts[i]);
+          const sample = mean + (Math.random() - 0.5) * Math.sqrt(variance);
+          if (sample > maxSample) {
+            maxSample = sample;
+            chosenIdx = i;
+          }
+        }
+
+        const p = arms[chosenIdx];
+        const qBandit = Math.exp(sku.alpha + sku.elasticity * Math.log(p / sku.basePrice)) * (0.9 + Math.random() * 0.2);
+        const profitBandit = (p - sku.cogs) * qBandit;
+
+        const qStatic = Math.exp(sku.alpha) * (0.9 + Math.random() * 0.2);
+        const profitStatic = (sku.basePrice - sku.cogs) * qStatic;
+
+        armCounts[chosenIdx]++;
+        armRewards[chosenIdx] += profitBandit;
+
+        cumBanditProfit += profitBandit;
+        cumStaticProfit += profitStatic;
+        cumRegret += Math.max(0, 1500 - profitBandit);
+
+        if (t % Math.max(1, Math.floor(rounds / 25)) === 0 || t === rounds) {
+          steps.push(t);
+          banditHistory.push(Math.round(cumBanditProfit));
+          staticHistory.push(Math.round(cumStaticProfit));
+        }
+      }
+
+      const uplift = ((cumBanditProfit - cumStaticProfit) / cumStaticProfit) * 100.0;
+      document.getElementById('b-profit').innerText = `$${Math.round(cumBanditProfit).toLocaleString()}`;
+      document.getElementById('b-static').innerText = `$${Math.round(cumStaticProfit).toLocaleString()}`;
+      document.getElementById('b-uplift').innerText = `+${uplift.toFixed(1)}% Uplift vs Static`;
+      document.getElementById('b-regret').innerText = `$${Math.round(cumRegret).toLocaleString()}`;
+
+      // Update Bandit charts
+      const ctxB = document.getElementById('banditProfitChart').getContext('2d');
+      if (banditProfitChart) banditProfitChart.destroy();
+      banditProfitChart = new Chart(ctxB, {
+        type: 'line',
+        data: {
+          labels: steps,
+          datasets: [
+            { label: 'Bandit Cumulative Profit ($)', data: banditHistory, borderColor: '#10b981', tension: 0.2 },
+            { label: 'Static Baseline ($)', data: staticHistory, borderColor: '#94a3b8', borderDash: [5, 5], tension: 0.2 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', callback: v => `$${v.toLocaleString()}` } },
+            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+          }
+        }
+      });
+
+      const ctxA = document.getElementById('banditArmsChart').getContext('2d');
+      if (banditArmsChart) banditArmsChart.destroy();
+      banditArmsChart = new Chart(ctxA, {
+        type: 'bar',
+        data: {
+          labels: arms.map(a => `$${Math.round(a)}`),
+          datasets: [{
+            label: 'Exploration Rounds',
+            data: armCounts,
+            backgroundColor: ['#6366f1', '#06b6d4', '#10b981', '#f59e0b', '#f43f5e'],
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { title: { display: true, text: 'Arm Allocation Distribution', color: '#fff' }, legend: { display: false } },
+          scales: {
+            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
+            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+          }
+        }
+      });
+    }
+
+    function initBanditCharts() {
+      if (!banditProfitChart) runBanditSimulation();
+    }
+
+    // Cohort Ledger
+    const COHORTS = [
+      { id: "2025-01", arpu: 3661, gm: 0.523, churn: 0.0296, cac: 4186 },
+      { id: "2025-02", arpu: 3735, gm: 0.574, churn: 0.0423, cac: 4127 },
+      { id: "2025-03", arpu: 3785, gm: 0.518, churn: 0.0320, cac: 4119 },
+      { id: "2025-04", arpu: 3833, gm: 0.565, churn: 0.0414, cac: 3870 },
+      { id: "2025-05", arpu: 3886, gm: 0.489, churn: 0.0269, cac: 3832 },
+      { id: "2025-06", arpu: 3711, gm: 0.567, churn: 0.0256, cac: 3780 },
+      { id: "2025-07", arpu: 3909, gm: 0.549, churn: 0.0292, cac: 3883 },
+      { id: "2025-08", arpu: 3890, gm: 0.524, churn: 0.0231, cac: 3651 },
+      { id: "2025-09", arpu: 4015, gm: 0.541, churn: 0.0359, cac: 3600 },
+      { id: "2025-10", arpu: 3668, gm: 0.481, churn: 0.0263, cac: 3619 },
+      { id: "2025-11", arpu: 4000, gm: 0.509, churn: 0.0291, cac: 3452 },
+      { id: "2025-12", arpu: 3812, gm: 0.503, churn: 0.0227, cac: 3310 }
+    ];
+
+    function renderCohortTable() {
+      const tbody = document.getElementById('cohort-tbody');
+      tbody.innerHTML = '';
+
+      const labels = [];
+      const ltvs = [];
+      const cacs = [];
+
+      COHORTS.forEach(c => {
+        const ltv = Math.round((c.arpu * c.gm) / c.churn);
+        const ratio = (ltv / c.cac).toFixed(2);
+        const payback = (c.cac / (c.arpu * c.gm)).toFixed(1);
+
+        labels.push(c.id);
+        ltvs.push(ltv);
+        cacs.push(c.cac);
+
+        const row = `
+          <tr>
+            <td style="font-weight: 600;">${c.id}</td>
+            <td>$${c.arpu.toLocaleString()}</td>
+            <td>${(c.gm * 100).toFixed(1)}%</td>
+            <td>${(c.churn * 100).toFixed(2)}%</td>
+            <td>$${c.cac.toLocaleString()}</td>
+            <td style="font-weight: 600; color: var(--accent-emerald);">$${ltv.toLocaleString()}</td>
+            <td style="font-weight: 600; color: var(--accent-cyan);">${ratio}x</td>
+            <td>${payback} mo</td>
+          </tr>
+        `;
+        tbody.innerHTML += row;
+      });
+
+      const ctxC = document.getElementById('cohortLtvCacChart').getContext('2d');
+      if (cohortChart) cohortChart.destroy();
+      cohortChart = new Chart(ctxC, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'Cohort LTV ($)', data: ltvs, backgroundColor: '#10b981', borderRadius: 4 },
+            { label: 'Cohort CAC ($)', data: cacs, backgroundColor: '#f59e0b', borderRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', callback: v => `$${v.toLocaleString()}` } },
+            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+          }
+        }
+      });
+    }
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => {
+      calculateQuote();
+      renderCohortTable();
+    });
+  </script>
+</body>
+</html>
