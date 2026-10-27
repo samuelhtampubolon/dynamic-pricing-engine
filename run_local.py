@@ -1,8 +1,12 @@
 """Unified local server startup and preflight validator for Dynamic Pricing & Unit Economics Engine."""
 
 from __future__ import annotations
+
 import argparse
+import os
+import random
 import socket
+import statistics
 import subprocess
 import sys
 import time
@@ -18,10 +22,13 @@ if hasattr(sys.stderr, "reconfigure"):
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config import settings
-from src.lakehouse import lakehouse
-from src.seed_market_data import seed_synthetic_lakehouse
-from src.services.elasticity_model import elasticity_service
+from src.config import settings  # noqa: E402
+from src.lakehouse import lakehouse  # noqa: E402
+from src.seed_market_data import seed_synthetic_lakehouse  # noqa: E402
+from src.services.elasticity_model import elasticity_service  # noqa: E402
+
+LATENCY_SAMPLES = 200
+GUARDRAIL_FUZZ_CASES = 1000
 
 
 def is_port_available(host: str, port: int) -> bool:
@@ -31,62 +38,91 @@ def is_port_available(host: str, port: int) -> bool:
         try:
             s.bind((host, port))
             return True
-        except (socket.error, OSError):
+        except OSError:
             return False
 
 
-def run_preflight_checks() -> bool:
-    """Execute preflight validations for Lakehouse data, models, and network ports."""
-    print("=" * 70)
+def run_preflight_checks(require_free_ports: bool = False) -> bool:
+    """Execute preflight validations for Lakehouse data, models, guardrails and network ports."""
+    ok = True
+    print("=" * 72)
     print("⚡ PREFLIGHT VERIFICATION: Real-Time Dynamic Pricing & Unit Economics Engine")
-    print("=" * 70)
+    print("=" * 72)
 
-    # 1. Database Check & Auto-Seeding
-    counts = lakehouse.get_table_counts()
-    has_data = (
-        counts.get("gold_sku_elasticity", 0) > 0
-        and counts.get("bronze_market_events", 0) > 0
-    )
-
-    if not has_data:
-        print("[*] DuckDB Lakehouse unpopulated. Executing initial synthetic seeding...")
+    # 1. Lakehouse: schema migration + auto-seeding (the only read-write phase)
+    lakehouse.initialize_schema()
+    if not lakehouse.is_current_schema_populated():
+        print("[*] Lakehouse empty or on an older schema. Seeding 12 months of synthetic data...")
         seed_res = seed_synthetic_lakehouse(days=365)
-        counts = seed_res["table_counts"]
-        print(f"[✓] Seeding complete: {counts}")
-    else:
-        print(f"[✓] DuckDB Lakehouse ready: {counts}")
+        for t_id, gate in seed_res["quality_gates"].items():
+            print(f"    gate {t_id}: {gate['status']} | quarantined {gate['rejected_poison_count']} "
+                  f"of {gate['total_bronze']} events {gate['rejection_reasons']}")
+    counts = lakehouse.get_table_counts()
+    print(f"[✓] DuckDB Medallion Lakehouse ready: {counts}")
 
-    # 2. Guarded Pricing Inference Test
-    t0 = time.perf_counter()
-    quote = elasticity_service.compute_guarded_quote(
-        tenant_id="tenant_alpha",
-        sku_id="SKU-GPU-H100",
-        inventory_level=350,
-        competitor_price=31500.0,
-    )
-    elapsed_ms = (time.perf_counter() - t0) * 1000.0
+    # 2. Inference latency (P95 target < 50ms)
+    skus = [(t, s["sku_id"]) for t in ("tenant_alpha", "tenant_beta") for s in lakehouse.get_sku_catalog(t)]
+    timings = []
+    for i in range(LATENCY_SAMPLES):
+        tenant_id, sku_id = skus[i % len(skus)]
+        t0 = time.perf_counter()
+        elasticity_service.compute_guarded_quote(tenant_id, sku_id, inventory_level=350, competitor_price=None)
+        timings.append((time.perf_counter() - t0) * 1000.0)
+    p95 = statistics.quantiles(timings, n=20)[-1]
+    latency_ok = p95 < 50.0
+    ok &= latency_ok
+    print(f"[{'✓' if latency_ok else '✗'}] Quote latency P95 = {p95:.2f}ms over {LATENCY_SAMPLES} calls (target < 50ms)")
 
-    print(f"[✓] Inference Sanity Test Passed ({elapsed_ms:.2f}ms latency, target <50ms P95)")
-    print(f"    SKU: {quote['sku_id']} | Rec Price: ${quote['recommended_price']:,.2f} | Status: {quote['guardrail_status']}")
+    # 3. Guardrail invariant fuzzing: floor <= price <= ceiling for every input
+    rng = random.Random(2026)
+    violations = 0
+    for _ in range(GUARDRAIL_FUZZ_CASES):
+        tenant_id, sku_id = rng.choice(skus)
+        q = elasticity_service.compute_guarded_quote(
+            tenant_id, sku_id,
+            inventory_level=rng.choice([0, 1, rng.randint(0, 1_000_000)]),
+            competitor_price=rng.choice([None, 0.01, rng.uniform(1, 1_000_000)]),
+            demand_surge_factor=rng.uniform(0.1, 10.0),
+        )
+        if not (q["margin_floor_price"] <= q["recommended_price"] <= q["max_msrp_ceiling"]):
+            violations += 1
+    fuzz_ok = violations == 0
+    ok &= fuzz_ok
+    print(f"[{'✓' if fuzz_ok else '✗'}] Margin-floor / MSRP circuit breaker held on {GUARDRAIL_FUZZ_CASES} fuzzed quotes "
+          f"({violations} violations)")
 
-    # 3. Port Availability Checks
-    api_free = is_port_available(settings.HOST, settings.API_PORT)
-    ui_free = is_port_available(settings.HOST, settings.STREAMLIT_PORT)
+    sample = elasticity_service.compute_guarded_quote("tenant_alpha", "SKU-GPU-H100", 350, 31500.0)
+    print(f"    SKU-GPU-H100 → ${sample['recommended_price']:,.2f} | {sample['guardrail_status']} | "
+          f"{sample['inventory_regime']} | ε={sample['elasticity_epsilon']}")
 
-    print(f"[{'✓' if api_free else '!'}] Port {settings.API_PORT} (FastAPI): {'Available' if api_free else 'Occupied'}")
-    print(f"[{'✓' if ui_free else '!'}] Port {settings.STREAMLIT_PORT} (Streamlit): {'Available' if ui_free else 'Occupied'}")
+    # 4. Security posture
+    print(f"[✓] Environment: {settings.ENV} | JWT {settings.JWT_ALGORITHM}, {settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES} min TTL")
+    if not settings.TENANT_CREDENTIALS:
+        print("[!] TENANT_CREDENTIALS not set: local demo credentials are active (never use in production).")
 
-    print("=" * 70)
-    print("🌟 All Preflight Verifications Passed Successfully!")
-    print("=" * 70)
-    return True
+    # 5. Port availability
+    for name, port in (("FastAPI", settings.API_PORT), ("Streamlit", settings.STREAMLIT_PORT)):
+        free = is_port_available(settings.HOST, port)
+        if require_free_ports and not free:
+            ok = False
+        print(f"[{'✓' if free else '!'}] Port {port} ({name}): {'Available' if free else 'Occupied'}")
+
+    # Release the read-write lock so the read-only serving processes can attach.
+    lakehouse.close()
+
+    print("=" * 72)
+    print("🌟 All Preflight Verifications Passed Successfully!" if ok else "✗ Preflight verification FAILED.")
+    print("=" * 72)
+    return ok
 
 
 def start_live_servers() -> None:
     """Launch FastAPI and Streamlit concurrently with graceful shutdown handling."""
-    run_preflight_checks()
+    if not run_preflight_checks(require_free_ports=True):
+        sys.exit(1)
 
     python_exe = sys.executable
+    child_env = {**os.environ, "DUCKDB_READ_ONLY": "true"}
 
     print("\n🚀 Starting Live Services:")
     print(f"   ► FastAPI REST API:      http://{settings.HOST}:{settings.API_PORT}")
@@ -97,6 +133,7 @@ def start_live_servers() -> None:
         python_exe, "-m", "uvicorn", "src.api.main:app",
         "--host", settings.HOST,
         "--port", str(settings.API_PORT),
+        "--no-server-header",
     ]
 
     ui_cmd = [
@@ -104,11 +141,14 @@ def start_live_servers() -> None:
         "--server.port", str(settings.STREAMLIT_PORT),
         "--server.address", settings.HOST,
         "--server.headless", "true",
+        "--server.enableXsrfProtection", "true",
         "--browser.gatherUsageStats", "false",
+        "--client.toolbarMode", "minimal",
+        "--theme.base", "dark",
     ]
 
-    api_proc = subprocess.Popen(api_cmd, cwd=str(PROJECT_ROOT))
-    ui_proc = subprocess.Popen(ui_cmd, cwd=str(PROJECT_ROOT))
+    api_proc = subprocess.Popen(api_cmd, cwd=str(PROJECT_ROOT), env=child_env)
+    ui_proc = subprocess.Popen(ui_cmd, cwd=str(PROJECT_ROOT), env=child_env)
 
     try:
         while True:
@@ -122,10 +162,13 @@ def start_live_servers() -> None:
     except KeyboardInterrupt:
         print("\n[*] Shutting down servers gracefully...")
     finally:
-        api_proc.terminate()
-        ui_proc.terminate()
-        api_proc.wait()
-        ui_proc.wait()
+        for proc in (api_proc, ui_proc):
+            proc.terminate()
+        for proc in (api_proc, ui_proc):
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
         print("[✓] All processes safely terminated.")
 
 
@@ -135,7 +178,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.check:
-        success = run_preflight_checks()
-        sys.exit(0 if success else 1)
+        sys.exit(0 if run_preflight_checks() else 1)
     else:
         start_live_servers()
