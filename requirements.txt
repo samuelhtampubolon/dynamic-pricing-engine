@@ -6,7 +6,7 @@ pydantic>=2.10.0
 pydantic-settings>=2.6.0
 
 # Econometrics & Simulation
-scikit-learn>=1.5.0
+scikit-learn>=1.9.1
 scipy>=1.13.0
 numpy>=1.26.0
 pandas>=2.2.0
