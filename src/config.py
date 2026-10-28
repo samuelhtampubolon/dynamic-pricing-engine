@@ -32,6 +32,7 @@ _COMPROMISED_JWT_SECRET_SHA256 = frozenset({
     "c85c055b87419a5bbc2d45099b13f0e8259b92db06056bcc7a71a5823aa0420d",
 })
 _MIN_JWT_SECRET_LENGTH = 32
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
 
 class Settings(BaseSettings):
@@ -109,11 +110,19 @@ class Settings(BaseSettings):
                 raise ValueError("TENANT_CREDENTIALS must be configured in production.")
             if self.DEBUG:
                 raise ValueError("APP_DEBUG must be false in production.")
-        elif len(secret) < _MIN_JWT_SECRET_LENGTH:
-            # Ephemeral per-process key: tokens die with the process, nothing to leak.
-            if secret:
-                logger.warning("JWT_SECRET_KEY shorter than %d chars; using an ephemeral key.", _MIN_JWT_SECRET_LENGTH)
-            self.JWT_SECRET_KEY = SecretStr(secrets.token_urlsafe(48))
+        else:
+            has_credentials = bool(self.TENANT_CREDENTIALS and self.TENANT_CREDENTIALS.get_secret_value().strip())
+            if not has_credentials and self.HOST not in _LOOPBACK_HOSTS:
+                # The local demo secrets are public; never expose them beyond this machine.
+                raise ValueError(
+                    "Local demo credentials are only allowed when HOST is a loopback address. "
+                    "Set TENANT_CREDENTIALS or bind HOST to 127.0.0.1."
+                )
+            if len(secret) < _MIN_JWT_SECRET_LENGTH:
+                # Ephemeral per-process key: tokens die with the process, nothing to leak.
+                if secret:
+                    logger.warning("JWT_SECRET_KEY shorter than %d chars; using an ephemeral key.", _MIN_JWT_SECRET_LENGTH)
+                self.JWT_SECRET_KEY = SecretStr(secrets.token_urlsafe(48))
         return self
 
     @property

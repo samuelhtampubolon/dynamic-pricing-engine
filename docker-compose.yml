@@ -7,7 +7,7 @@ services:
     container_name: dynamic-pricing-api
     env_file: .env
     environment:
-      APP_ENV: ${APP_ENV:-production}
+      APP_ENV: production
       HOST: 0.0.0.0
       ALLOWED_HOSTS: 127.0.0.1,localhost,pricing-api
       DUCKDB_PATH: /app/data/pricing_lakehouse.duckdb
