@@ -714,6 +714,7 @@
     ["high", "Econometrics", "Bandit and dashboard demand used e^{α+ε ln(P/P₀)}: about 10⁷ units per day and USD 14 trillion in 50 rounds.", "One demand function, e^{α}P^{ε}P_c^{β} with smearing, shared by quote, bandit, charts and the JS engine."],
     ["high", "Operations", "run_local.py kept a read-write DuckDB lock open, so FastAPI and Streamlit both failed with “Could not set lock on file”.", "Preflight releases the lock; serving processes attach with DUCKDB_READ_ONLY=true."],
     ["high", "Input validation", "NaN, Infinity and 1e308 were accepted inside candidate_prices.", "allow_inf_nan=False on every model, bounded price items, identifier patterns on all IDs."],
+    ["high", "Deployment", "The public local demo secrets were active in any non-production run, including a container bound to 0.0.0.0 with APP_ENV=development from .env.", "Demo secrets are refused unless HOST is loopback; docker compose pins APP_ENV=production for the API."],
     ["high", "Data quality", "Mean/σ z-score let coordinated poisoning mask itself.", "Median/MAD robust z-score, per-reason audit and a fail-closed quarantine ratio."],
     ["medium", "Experimentation", "Thompson Sampling priors were 0.8 × the true arm profits (look-ahead leak); no seed, so runs were not reproducible.", "Flat-prior Gaussian TS, Poisson demand, seeded generator, UCB1 added."],
     ["medium", "Econometrics", "With fewer than 3 rows the fit returned a fabricated R² of 0.85 and ε = −1.5.", "Documented prior ε = −2 with R² = 0, flagged is_prior_fallback."],

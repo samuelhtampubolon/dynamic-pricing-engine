@@ -5,7 +5,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
 [![DuckDB](https://img.shields.io/badge/DuckDB-1.1+-FFF000.svg?logo=duckdb&logoColor=black)](https://duckdb.org)
 [![OWASP API Top 10](https://img.shields.io/badge/OWASP%20API%20Top%2010-hardened-success.svg)](SECURITY.md)
-[![Tests](https://img.shields.io/badge/pytest-75%2F75%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/pytest-76%2F76%20passed-brightgreen.svg)](tests/)
 
 A locally runnable pricing and unit economics engine: **FastAPI** gateway, embedded **DuckDB Medallion Lakehouse** (Bronze → Silver → Gold), **log-log OLS elasticity** with full inference, a **Lerner-optimal price pipeline behind a non-bypassable margin-floor / MSRP circuit breaker**, **Thompson Sampling / UCB1 / ε-greedy** price experimentation, cohort **LTV/CAC** economics and a **Streamlit** control tower.
 
@@ -111,7 +111,7 @@ python run_local.py           # FastAPI + Streamlit, both attached read-only
 
 ### Calling the API locally
 
-Outside production, two local demo tenants are available (`tenant_alpha` / `alpha-local-demo-secret`, `tenant_beta` / `beta-local-demo-secret`) and the JWT key is ephemeral per process.
+Outside production, two local demo tenants are available (`tenant_alpha` / `alpha-local-demo-secret`, `tenant_beta` / `beta-local-demo-secret`) and the JWT key is ephemeral per process. These secrets are public, so the app refuses to start with them unless `HOST` is a loopback address (`127.0.0.1`, `localhost`, `::1`).
 
 ```bash
 TOKEN=$(curl -s -X POST http://127.0.0.1:8000/api/v1/auth/token \
@@ -130,7 +130,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"   # JWT_SECRET_KEY
 python -m src.credentials hash-secret                         # one scrypt hash per tenant
 ```
 
-Set `APP_ENV=production`, `JWT_SECRET_KEY` and `TENANT_CREDENTIALS=tenant_id:role:scrypt$...` in `.env` (see [.env.example](.env.example)). The process refuses to start in production without them. `docker compose up` builds a non-root image with a read-only root filesystem, binds ports to loopback only, and reads secrets from `.env`.
+Set `APP_ENV=production`, `JWT_SECRET_KEY` and `TENANT_CREDENTIALS=tenant_id:role:scrypt$...` in `.env` (see [.env.example](.env.example)). The process refuses to start in production without them. `docker compose up` always runs the API with `APP_ENV=production`, builds a non-root image with a read-only root filesystem, binds ports to loopback only, and reads secrets from `.env`.
 
 ### Upgrading from v1
 
@@ -141,7 +141,7 @@ Set `APP_ENV=production`, `JWT_SECRET_KEY` and `TENANT_CREDENTIALS=tenant_id:rol
 ## 🧪 Verification
 
 ```bash
-pytest -v                          # 75 tests
+pytest -v                          # 76 tests
 python scripts/build_test_report.py  # also refreshes docs/assets/data/test-report.json for the Pages site
 ```
 
@@ -149,7 +149,7 @@ python scripts/build_test_report.py  # also refreshes docs/assets/data/test-repo
 | :--- | ---: | :--- |
 | `tests/test_api_security.py` | 8 | the original OWASP / probe checks |
 | `tests/test_pricing_guardrails.py` | 6 | the original guardrail, gate, LTV and bandit checks |
-| `tests/test_security_hardening.py` | 29 | credential vault, forged / `alg=none` / expired / wrong-audience tokens, leaked-key refusal, NaN/Inf, injection patterns, body limit, rate limit, CORS, TrustedHost, headers, error redaction |
+| `tests/test_security_hardening.py` | 30 | credential vault, demo credentials refused off loopback, forged / `alg=none` / expired / wrong-audience tokens, leaked-key refusal, NaN/Inf, injection patterns, body limit, rate limit, CORS, TrustedHost, headers, error redaction |
 | `tests/test_quant_formulas.py` | 29 | Lerner FOC vs grid search, 3,000-case guardrail fuzz, sell-through, uplift, break-even, arc elasticity, OLS recovery and CI coverage, smearing, bandit regret, discounted LTV vs series, churn-adjusted payback, robust gate, fail-closed ratio, P95 latency |
 | `tests/test_js_engine_parity.py` | 3 | browser engine = Python engine (300 random quotes, OLS, unit economics) |
 

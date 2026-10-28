@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import app
-from src import config
+from src import config, credentials
 from src.config import Settings, settings
 from src.security import DEMO_TENANT_SECRETS, create_access_token
 
@@ -74,6 +74,15 @@ def test_compromised_secret_refused_by_settings(monkeypatch):
     with pytest.raises(ValueError):
         Settings(JWT_SECRET_KEY=burned)
     assert len(config._COMPROMISED_JWT_SECRET_SHA256) == 1
+
+
+def test_demo_credentials_refused_off_loopback():
+    """The public demo secrets may only be active when the server is bound to loopback."""
+    with pytest.raises(ValueError):
+        Settings(APP_ENV="development", HOST="0.0.0.0")
+    assert Settings(APP_ENV="development", HOST="127.0.0.1").HOST == "127.0.0.1"
+    vault_entry = "tenant_alpha:pricing_analyst:" + credentials.hash_client_secret("a-real-secret-123")
+    assert Settings(APP_ENV="development", HOST="0.0.0.0", TENANT_CREDENTIALS=vault_entry).HOST == "0.0.0.0"
 
 
 def test_production_requires_secrets():

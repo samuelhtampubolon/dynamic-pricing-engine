@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-10-27T07:07:52+00:00",
+  "generated_at": "2026-10-28T04:27:36+00:00",
   "python": "Python 3.13.17",
-  "total": 75,
-  "passed": 75,
+  "total": 76,
+  "passed": 76,
   "failed": 0,
   "skipped": 0,
   "files": [
@@ -216,7 +216,7 @@
     },
     {
       "file": "tests/test_security_hardening.py",
-      "passed": 29,
+      "passed": 30,
       "tests": [
         {
           "name": "test_token_requires_valid_client_secret",
@@ -231,11 +231,15 @@
           "outcome": "passed"
         },
         {
-          "name": "test_forged_token_with_leaked_v1_secret_rejected",
+          "name": "test_forged_token_with_foreign_key_rejected",
           "outcome": "passed"
         },
         {
-          "name": "test_leaked_secret_refused_by_settings",
+          "name": "test_compromised_secret_refused_by_settings",
+          "outcome": "passed"
+        },
+        {
+          "name": "test_demo_credentials_refused_off_loopback",
           "outcome": "passed"
         },
         {
@@ -283,7 +287,7 @@
           "outcome": "passed"
         },
         {
-          "name": "test_nan_and_inf_rejected_on_quote[{\"tenant_id\":\"tenant_alpha\",\"sku_id\":\"SKU-GPU-H100\",\"inventory_level\":300,\"competitor_price\":Infinity}]",
+          "name": "test_nan_and_inf_rejected_on_quote[body1]",
           "outcome": "passed"
         },
         {

@@ -5,6 +5,7 @@ developer's local lakehouse, and works on a fresh clone with no seeded data.
 """
 
 import os
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -28,6 +29,7 @@ def setup_test_lakehouse():
     seed_synthetic_lakehouse(days=180, seed=123)
     yield
     lakehouse.close()
+    shutil.rmtree(_TMP_DIR, ignore_errors=True)
 
 
 @pytest.fixture(autouse=True)
