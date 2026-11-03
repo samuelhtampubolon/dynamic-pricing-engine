@@ -12,7 +12,7 @@ numpy>=1.26.0
 pandas>=3.1.0
 
 # UI & Data Visualization
-streamlit>=1.40.0
+streamlit>=1.66.1
 plotly>=7.1.0
 
 # Security & Defense-in-Depth
